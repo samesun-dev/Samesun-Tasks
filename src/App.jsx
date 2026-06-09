@@ -17,12 +17,12 @@ const TEAMS = [
 ];
 
 const TEAM_COLORS = {
-  hr:        { bg: "rgba(120,220,150,0.1)", text: "#7dca9a" },
-  sales:     { bg: "rgba(245,166,35,0.12)", text: "#F5A623" },
-  marketing: { bg: "rgba(255,120,150,0.1)", text: "#f58aaa" },
-  growth:    { bg: "rgba(100,180,255,0.1)", text: "#7ab8f5" },
-  finance:   { bg: "rgba(100,200,255,0.1)", text: "#6ec6f5" },
-  ops:       { bg: "rgba(180,120,255,0.1)", text: "#c49af5" },
+  hr:        { bg: "#FEF3C7", text: "#92400E" },
+  sales:     { bg: "#DBEAFE", text: "#1E40AF" },
+  marketing: { bg: "#FCE7F3", text: "#9D174D" },
+  growth:    { bg: "#D1FAE5", text: "#065F46" },
+  finance:   { bg: "#EDE9FE", text: "#5B21B6" },
+  ops:       { bg: "#FEE2E2", text: "#991B1B" },
 };
 
 const STATUS_OPTIONS = [
@@ -33,10 +33,10 @@ const STATUS_OPTIONS = [
 ];
 
 const STATUS_STYLES = {
-  not_started: { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.4)" },
-  in_progress: { bg: "rgba(245,166,35,0.1)",  text: "rgba(245,166,35,0.9)" },
-  blocked:     { bg: "rgba(220,60,60,0.12)",   text: "#e07070" },
-  completed:   { bg: "rgba(100,200,120,0.12)", text: "#7dca9a" },
+  not_started: { bg: "#F3F4F6", text: "#6B7280" },
+  in_progress: { bg: "#FEF3C7", text: "#92400E" },
+  blocked:     { bg: "#FEE2E2", text: "#991B1B" },
+  completed:   { bg: "#D1FAE5", text: "#065F46" },
 };
 
 function todayISO() { return new Date().toISOString().split("T")[0]; }
@@ -48,8 +48,8 @@ function formatDate(d) {
 
 function SunLogo() {
   return (
-    <div style={{ width: 30, height: 30, background: "#F5A623", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F1523" strokeWidth="2.5" strokeLinecap="round">
+    <div style={{ width: 34, height: 34, background: "#F5A623", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
         <circle cx="12" cy="12" r="5"/>
         <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
         <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
@@ -61,21 +61,30 @@ function SunLogo() {
 }
 
 function TeamBadge({ teamSlug, teamName }) {
-  const c = TEAM_COLORS[teamSlug] ?? { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.4)" };
-  return <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, fontWeight: 500, background: c.bg, color: c.text }}>{teamName}</span>;
+  const c = TEAM_COLORS[teamSlug] ?? { bg: "#F3F4F6", text: "#6B7280" };
+  return <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600, background: c.bg, color: c.text }}>{teamName}</span>;
 }
 
 function StatusBadge({ status }) {
   const s = STATUS_STYLES[status] ?? STATUS_STYLES.not_started;
   const label = STATUS_OPTIONS.find(o => o.value === status)?.label ?? status;
-  return <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, fontWeight: 500, background: s.bg, color: s.text }}>{label}</span>;
+  return <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600, background: s.bg, color: s.text }}>{label}</span>;
 }
 
-const card  = { background: "#1A2235", border: "0.5px solid rgba(255,255,255,0.07)", borderRadius: 10, overflow: "hidden" };
-const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 8, border: "0.5px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "#fff", fontSize: 13, outline: "none" };
-const labelStyle = { display: "block", fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 5 };
-const rowBorder  = { borderBottom: "0.5px solid rgba(255,255,255,0.05)" };
-const ghostBtn   = { background: "none", border: "0.5px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.45)", fontSize: 12, padding: "5px 10px", borderRadius: 6, cursor: "pointer" };
+const BG       = "#FAFAF8";
+const CARD     = "#FFFFFF";
+const NAVY     = "#0F1523";
+const ACCENT   = "#F5A623";
+const BORDER   = "#EEEDE9";
+const TEXT     = "#1A2235";
+const MUTED    = "#9CA3AF";
+const DANGER   = "#991B1B";
+
+const card = { background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" };
+const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${BORDER}`, background: "#FAFAF8", color: TEXT, fontSize: 13, outline: "none" };
+const labelStyle = { display: "block", fontSize: 12, color: MUTED, marginBottom: 5, fontWeight: 500 };
+const rowBorder  = { borderBottom: `1px solid ${BORDER}` };
+const ghostBtn   = { background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer" };
 
 export default function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("task_user")); } catch { return null; } });
@@ -102,22 +111,14 @@ function LoginScreen({ onLogin }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0F1523", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 360 }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, background: "#F5A623", borderRadius: 16, marginBottom: 16 }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0F1523" strokeWidth="2.5" strokeLinecap="round">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-          </div>
-          <h1 style={{ color: "#fff", fontSize: 22, fontWeight: 600, margin: 0 }}>Samesun Tasks</h1>
-          <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, marginTop: 4 }}>Sign in to continue</p>
+    <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ display: "inline-flex", marginBottom: 16 }}><SunLogo /></div>
+          <h1 style={{ color: TEXT, fontSize: 24, fontWeight: 700, margin: 0 }}>Samesun Tasks</h1>
+          <p style={{ color: MUTED, fontSize: 14, marginTop: 6 }}>Your team's daily task hub</p>
         </div>
-        <div style={{ background: "#1A2235", borderRadius: 16, padding: 24, border: "0.5px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ background: CARD, borderRadius: 16, padding: 28, border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
               <label style={labelStyle}>Email</label>
@@ -127,13 +128,13 @@ function LoginScreen({ onLogin }) {
               <label style={labelStyle}>Password</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" required style={inputStyle} />
             </div>
-            {error && <p style={{ color: "#e07070", fontSize: 12, background: "rgba(220,60,60,0.08)", padding: "8px 12px", borderRadius: 6 }}>{error}</p>}
-            <button type="submit" disabled={loading} style={{ background: "#F5A623", color: "#0F1523", border: "none", borderRadius: 10, padding: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", opacity: loading ? 0.6 : 1 }}>
+            {error && <p style={{ color: DANGER, fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8, border: "1px solid #FECACA" }}>{error}</p>}
+            <button type="submit" disabled={loading} style={{ background: ACCENT, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: loading ? 0.7 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
               {loading ? "Signing in…" : "Sign in →"}
             </button>
           </form>
         </div>
-        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: 16 }}>admin@company.com · admin123</p>
+        <p style={{ textAlign: "center", color: MUTED, fontSize: 11, marginTop: 16 }}>admin@company.com · admin123</p>
       </div>
     </div>
   );
@@ -143,42 +144,39 @@ function LoginScreen({ onLogin }) {
 function Main({ user, onLogout }) {
   const [tab, setTab] = useState("tasks");
 
-  const navBtn = (key, label) => (
-    <button key={key} onClick={() => setTab(key)} style={{
-      background: "none", border: "none", cursor: "pointer", padding: "9px 14px",
-      fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
-      borderBottom: tab === key ? "2px solid #F5A623" : "2px solid transparent",
-      color: tab === key ? "#F5A623" : "rgba(255,255,255,0.35)",
-    }}>{label}</button>
-  );
-
   return (
-    <div style={{ minHeight: "100vh", background: "#0F1523" }}>
-      <div style={{ background: "#0F1523", borderBottom: "0.5px solid rgba(255,255,255,0.08)", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}>
+    <div style={{ minHeight: "100vh", background: BG }}>
+      <div style={{ background: NAVY, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <SunLogo />
               <div>
-                <div style={{ color: "#fff", fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>Samesun Tasks</div>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>Samesun Tasks</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, padding: "5px 10px" }}>{user.name}</span>
-              <button onClick={onLogout} style={ghostBtn}>Sign out</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{user.name}</span>
+              <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer" }}>
+                Sign out
+              </button>
             </div>
           </div>
-          <div style={{ display: "flex", overflowX: "auto" }}>
-            {navBtn("tasks",   "Tasks")}
-            {navBtn("history", "History")}
-            {navBtn("people",  "People")}
+          <div style={{ display: "flex", gap: 0 }}>
+            {[["tasks","Tasks"],["history","History"],["people","People"]].map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)} style={{
+                background: "none", border: "none", cursor: "pointer", padding: "10px 16px",
+                fontSize: 13, fontWeight: 600, color: tab === key ? ACCENT : "rgba(255,255,255,0.45)",
+                borderBottom: tab === key ? `2px solid ${ACCENT}` : "2px solid transparent",
+              }}>{label}</button>
+            ))}
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 20px 80px" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 20px 80px" }}>
         {tab === "tasks"   && <TaskView   user={user} />}
         {tab === "history" && <HistoryView />}
         {tab === "people"  && <PeopleView currentUser={user} />}
@@ -189,16 +187,16 @@ function Main({ user, onLogout }) {
 
 // ── TASK VIEW ──────────────────────────────────────────────
 function TaskView({ user }) {
-  const [activeTeam, setActiveTeam]     = useState("all");
-  const [instances, setInstances]       = useState([]);
-  const [tasks, setTasks]               = useState({});
-  const [teams, setTeams]               = useState({});
-  const [users, setUsers]               = useState({});
-  const [loading, setLoading]           = useState(true);
-  const [completingId, setCompletingId] = useState(null);
-  const [editingTask, setEditingTask]   = useState(null);
-  const [showAddForm, setShowAddForm]   = useState(false);
-  const [showReport, setShowReport]     = useState(false);
+  const [activeTeam, setActiveTeam]       = useState("all");
+  const [instances, setInstances]         = useState([]);
+  const [tasks, setTasks]                 = useState({});
+  const [teams, setTeams]                 = useState({});
+  const [users, setUsers]                 = useState({});
+  const [loading, setLoading]             = useState(true);
+  const [completingId, setCompletingId]   = useState(null);
+  const [editingTask, setEditingTask]     = useState(null);
+  const [showAddForm, setShowAddForm]     = useState(false);
+  const [showReport, setShowReport]       = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const today = todayISO();
 
@@ -233,44 +231,47 @@ function TaskView({ user }) {
   const pct = filtered.length ? Math.round((completed.length / filtered.length) * 100) : 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Team tabs + progress */}
-      <div style={{ background: "#0F1523", marginLeft: -20, marginRight: -20, paddingLeft: 20, paddingRight: 20, borderBottom: "0.5px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ display: "flex", overflowX: "auto" }}>
-          {TEAMS.map(t => (
-            <button key={t.slug} onClick={() => setActiveTeam(t.slug)} style={{
-              padding: "8px 12px", fontSize: 11, fontWeight: 500, background: "none", border: "none",
-              borderBottom: activeTeam === t.slug ? "2px solid #F5A623" : "2px solid transparent",
-              color: activeTeam === t.slug ? "#F5A623" : "rgba(255,255,255,0.3)",
-              cursor: "pointer", whiteSpace: "nowrap",
-            }}>{t.name}</button>
-          ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Progress card */}
+      <div style={{ background: NAVY, borderRadius: 14, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
+          <span>{completed.length} of {filtered.length} tasks done today</span>
+          <span style={{ color: ACCENT, fontWeight: 700 }}>{pct}%</span>
         </div>
-        <div style={{ padding: "8px 0 12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 5 }}>
-            <span>{completed.length} of {filtered.length} tasks done today</span>
-            <span style={{ color: "#F5A623", fontWeight: 500 }}>{pct}%</span>
-          </div>
-          <div style={{ height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 2 }}>
-            <div style={{ height: 3, background: "#F5A623", borderRadius: 2, width: `${pct}%`, transition: "width 0.4s" }} />
-          </div>
+        <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3 }}>
+          <div style={{ height: 6, background: ACCENT, borderRadius: 3, width: `${pct}%`, transition: "width 0.4s", boxShadow: "0 0 8px rgba(245,166,35,0.5)" }} />
         </div>
       </div>
 
+      {/* Team tabs */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+        {TEAMS.map(t => (
+          <button key={t.slug} onClick={() => setActiveTeam(t.slug)} style={{
+            padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
+            background: activeTeam === t.slug ? ACCENT : CARD,
+            color: activeTeam === t.slug ? "#fff" : MUTED,
+            border: activeTeam === t.slug ? `1px solid ${ACCENT}` : `1px solid ${BORDER}`,
+            boxShadow: activeTeam === t.slug ? "0 2px 8px rgba(245,166,35,0.3)" : "none",
+          }}>{t.name}</button>
+        ))}
+      </div>
+
+      {/* Actions */}
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => setShowAddForm(true)} style={{ flex: 1, background: "rgba(245,166,35,0.05)", border: "1px dashed rgba(245,166,35,0.25)", color: "rgba(245,166,35,0.65)", fontSize: 13, padding: 11, borderRadius: 10, cursor: "pointer" }}>
-          + Add task
-        </button>
+        <button onClick={() => setShowAddForm(true)} style={{
+          flex: 1, background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700,
+          padding: "11px", borderRadius: 10, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)",
+        }}>+ Add task</button>
         <button onClick={() => setShowReport(true)} style={ghostBtn}>Report</button>
       </div>
 
       {loading ? (
-        <p style={{ color: "rgba(255,255,255,0.25)", textAlign: "center", padding: 40, fontSize: 13 }}>Loading tasks…</p>
+        <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading tasks…</p>
       ) : (
         <>
           {pending.length > 0 && (
             <>
-              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 2px 2px" }}>Pending · {pending.length}</p>
+              <p style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Pending · {pending.length}</p>
               <div style={card}>
                 {pending.map((inst, i) => (
                   <TaskRow key={inst.id} instance={inst} task={tasks[inst.task_id]}
@@ -285,9 +286,9 @@ function TaskView({ user }) {
 
           {completed.length > 0 && (
             <>
-              <button onClick={() => setShowCompleted(!showCompleted)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 2px 2px", width: "100%" }}>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Completed · {completed.length}</span>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>{showCompleted ? "Hide" : "Show"}</span>
+              <button onClick={() => setShowCompleted(!showCompleted)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "2px 0" }}>
+                <span style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Completed · {completed.length}</span>
+                <span style={{ fontSize: 11, color: MUTED }}>{showCompleted ? "Hide ↑" : "Show ↓"}</span>
               </button>
               {showCompleted && (
                 <div style={card}>
@@ -305,9 +306,10 @@ function TaskView({ user }) {
           )}
 
           {filtered.length === 0 && (
-            <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(255,255,255,0.2)" }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>☀️</div>
-              <p style={{ fontSize: 14 }}>No tasks here — add one above</p>
+            <div style={{ textAlign: "center", padding: "60px 0", color: MUTED }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>☀️</div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>All clear!</p>
+              <p style={{ fontSize: 13, marginTop: 4 }}>No tasks here — add one above</p>
             </div>
           )}
         </>
@@ -380,17 +382,9 @@ function HistoryView() {
   function getRange() {
     const today = new Date();
     const fmt = d => d.toISOString().split("T")[0];
-    if (preset === "yesterday") {
-      const y = new Date(today); y.setDate(y.getDate() - 1);
-      return [fmt(y), fmt(y)];
-    }
-    if (preset === "week") {
-      const mon = new Date(today); mon.setDate(today.getDate() - today.getDay() + 1);
-      return [fmt(mon), fmt(today)];
-    }
-    if (preset === "month") {
-      return [`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`, fmt(today)];
-    }
+    if (preset === "yesterday") { const y = new Date(today); y.setDate(y.getDate() - 1); return [fmt(y), fmt(y)]; }
+    if (preset === "week") { const mon = new Date(today); mon.setDate(today.getDate() - today.getDay() + 1); return [fmt(mon), fmt(today)]; }
+    if (preset === "month") return [`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`, fmt(today)];
     if (preset === "custom") return [from, to];
     return [fmt(today), fmt(today)];
   }
@@ -423,74 +417,67 @@ function HistoryView() {
   });
 
   const grouped = {};
-  filtered.forEach(inst => {
-    if (!grouped[inst.due_date]) grouped[inst.due_date] = [];
-    grouped[inst.due_date].push(inst);
-  });
+  filtered.forEach(inst => { if (!grouped[inst.due_date]) grouped[inst.due_date] = []; grouped[inst.due_date].push(inst); });
 
   const done    = filtered.filter(i => i.status === "completed").length;
   const pending = filtered.filter(i => i.status !== "completed").length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* Preset buttons */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {[["yesterday","Yesterday"],["week","This week"],["month","This month"],["custom","Custom range"]].map(([key, label]) => (
+        {[["yesterday","Yesterday"],["week","This week"],["month","This month"],["custom","Custom"]].map(([key, label]) => (
           <button key={key} onClick={() => setPreset(key)} style={{
-            padding: "6px 12px", fontSize: 12, borderRadius: 6, cursor: "pointer", fontWeight: 500,
-            background: preset === key ? "#F5A623" : "rgba(255,255,255,0.05)",
-            color: preset === key ? "#0F1523" : "rgba(255,255,255,0.5)",
-            border: preset === key ? "none" : "0.5px solid rgba(255,255,255,0.1)",
+            padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer",
+            background: preset === key ? ACCENT : CARD,
+            color: preset === key ? "#fff" : MUTED,
+            border: preset === key ? `1px solid ${ACCENT}` : `1px solid ${BORDER}`,
+            boxShadow: preset === key ? "0 2px 8px rgba(245,166,35,0.3)" : "none",
           }}>{label}</button>
         ))}
       </div>
 
-      {/* Custom date range */}
       {preset === "custom" && (
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ ...inputStyle, colorScheme: "dark", flex: 1 }} />
-          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>to</span>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ ...inputStyle, colorScheme: "dark", flex: 1 }} />
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+          <span style={{ color: MUTED, fontSize: 12 }}>to</span>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
           <button onClick={loadHistory} style={{ ...ghostBtn, whiteSpace: "nowrap" }}>Apply</button>
         </div>
       )}
 
-      {/* Team filter */}
-      <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
         {TEAMS.map(t => (
           <button key={t.slug} onClick={() => setActiveTeam(t.slug)} style={{
-            padding: "5px 10px", fontSize: 11, borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap",
-            background: activeTeam === t.slug ? "rgba(245,166,35,0.15)" : "rgba(255,255,255,0.04)",
-            color: activeTeam === t.slug ? "#F5A623" : "rgba(255,255,255,0.35)",
-            border: activeTeam === t.slug ? "0.5px solid rgba(245,166,35,0.3)" : "0.5px solid rgba(255,255,255,0.08)",
+            padding: "5px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap",
+            background: activeTeam === t.slug ? NAVY : CARD,
+            color: activeTeam === t.slug ? "#fff" : MUTED,
+            border: activeTeam === t.slug ? `1px solid ${NAVY}` : `1px solid ${BORDER}`,
           }}>{t.name}</button>
         ))}
       </div>
 
-      {/* Summary */}
       {!loading && filtered.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          {[["Completed", done, "#7dca9a", "rgba(100,200,120,0.08)"], ["Not done", pending, "#F5A623", "rgba(245,166,35,0.08)"]].map(([label, val, color, bg]) => (
-            <div key={label} style={{ background: bg, border: `0.5px solid ${color}22`, borderRadius: 10, padding: "12px 16px", textAlign: "center" }}>
-              <p style={{ fontSize: 24, fontWeight: 700, color, margin: 0 }}>{val}</p>
-              <p style={{ fontSize: 11, color, opacity: 0.7, margin: "2px 0 0" }}>{label}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {[["Completed", done, "#065F46", "#D1FAE5", "#6EE7B7"],["Not done", pending, "#92400E", "#FEF3C7", "#FCD34D"]].map(([label, val, text, bg, border]) => (
+            <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+              <p style={{ fontSize: 28, fontWeight: 800, color: text, margin: 0 }}>{val}</p>
+              <p style={{ fontSize: 12, color: text, opacity: 0.8, margin: "3px 0 0", fontWeight: 600 }}>{label}</p>
             </div>
           ))}
         </div>
       )}
 
       {loading ? (
-        <p style={{ color: "rgba(255,255,255,0.25)", textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p>
+        <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(255,255,255,0.2)" }}>
-          <p style={{ fontSize: 14 }}>No tasks found for this period</p>
+        <div style={{ textAlign: "center", padding: "60px 0", color: MUTED }}>
+          <p style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>No tasks found</p>
+          <p style={{ fontSize: 13, marginTop: 4 }}>Try a different date range</p>
         </div>
       ) : (
         Object.entries(grouped).map(([date, dayInstances]) => (
           <div key={date}>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
-              {formatDate(date)}
-            </p>
+            <p style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>{formatDate(date)}</p>
             <div style={card}>
               {dayInstances.map((inst, i) => {
                 const task = tasks[inst.task_id];
@@ -498,18 +485,18 @@ function HistoryView() {
                 const completedBy = users[inst.completed_by];
                 const time = inst.completed_at ? new Date(inst.completed_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
                 return (
-                  <div key={inst.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", ...(i < dayInstances.length - 1 ? rowBorder : {}) }}>
+                  <div key={inst.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", ...(i < dayInstances.length - 1 ? rowBorder : {}) }}>
                     <StatusBadge status={inst.status} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: 500 }}>{task?.title ?? "—"}</p>
-                      <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+                      <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{task?.title ?? "—"}</p>
+                      <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
                         {team && <TeamBadge teamSlug={team.slug} teamName={team.name} />}
-                        {task?.frequency && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>{task.frequency}</span>}
+                        {task?.frequency && <span style={{ fontSize: 11, color: MUTED }}>{task.frequency}</span>}
                       </div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      {completedBy && <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 500 }}>{completedBy.name.split(" ")[0]}</p>}
-                      {time && <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{time}</p>}
+                      {completedBy && <p style={{ color: TEXT, fontSize: 12, fontWeight: 600 }}>{completedBy.name.split(" ")[0]}</p>}
+                      {time && <p style={{ color: MUTED, fontSize: 11 }}>{time}</p>}
                     </div>
                   </div>
                 );
@@ -555,8 +542,7 @@ function PeopleView({ currentUser }) {
 
   async function handleEditUser(form) {
     await supabase.from("users").update({
-      name: form.name, email: form.email,
-      team_id: form.team_id || null, role: form.role,
+      name: form.name, email: form.email, team_id: form.team_id || null, role: form.role,
       ...(form.password ? { password: form.password } : {}),
     }).eq("id", editingUser.id);
     setEditingUser(null); loadPeople();
@@ -570,33 +556,33 @@ function PeopleView({ currentUser }) {
   const initials = name => name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{users.length} people</p>
-        <button onClick={() => setShowAdd(true)} style={{ background: "#F5A623", border: "none", color: "#0F1523", fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, cursor: "pointer" }}>
+        <p style={{ color: MUTED, fontSize: 13, fontWeight: 500 }}>{users.length} people</p>
+        <button onClick={() => setShowAdd(true)} style={{ background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "8px 16px", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
           + Add person
         </button>
       </div>
 
       {loading ? (
-        <p style={{ color: "rgba(255,255,255,0.25)", textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p>
+        <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p>
       ) : (
         <div style={card}>
           {users.map((u, i) => {
             const team = teams[u.team_id];
             return (
-              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", ...(i < users.length - 1 ? rowBorder : {}) }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(245,166,35,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#F5A623" }}>{initials(u.name)}</span>
+              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", ...(i < users.length - 1 ? rowBorder : {}) }}>
+                <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#FEF3C7", border: "2px solid #FCD34D", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#92400E" }}>{initials(u.name)}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}>{u.name}</p>
-                  <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 1 }}>{u.email}</p>
+                  <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{u.name}</p>
+                  <p style={{ color: MUTED, fontSize: 11, marginTop: 1 }}>{u.email}</p>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {team && <TeamBadge teamSlug={team.slug} teamName={team.name} />}
-                  {u.role === "admin" && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(245,166,35,0.1)", color: "#F5A623" }}>admin</span>}
-                  <button onClick={() => setEditingUser(u)} style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.3)", fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer" }}>Edit</button>
+                  {u.role === "admin" && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "#FEF3C7", color: "#92400E", fontWeight: 600 }}>Admin</span>}
+                  <button onClick={() => setEditingUser(u)} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>Edit</button>
                 </div>
               </div>
             );
@@ -604,35 +590,30 @@ function PeopleView({ currentUser }) {
         </div>
       )}
 
-      {/* New credentials popup */}
       {newCredentials && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
-          <div style={{ background: "#1A2235", borderRadius: 16, padding: 24, width: "100%", maxWidth: 380, border: "0.5px solid rgba(255,255,255,0.08)" }}>
-            <p style={{ color: "#fff", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>✅ Person added!</p>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 16 }}>Share these login details with {newCredentials.name}:</p>
-            <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 2 }}>URL</p>
-              <p style={{ color: "#F5A623", fontSize: 13, fontWeight: 500, marginBottom: 10 }}>samesun-tasks.vercel.app</p>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 2 }}>Email</p>
-              <p style={{ color: "#fff", fontSize: 13, fontWeight: 500, marginBottom: 10 }}>{newCredentials.email}</p>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 2 }}>Password</p>
-              <p style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}>{newCredentials.password}</p>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+          <div style={{ background: CARD, borderRadius: 16, padding: 24, width: "100%", maxWidth: 380, border: `1px solid ${BORDER}`, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
+            <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, marginBottom: 4 }}>✅ Person added!</p>
+            <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>Share these login details with {newCredentials.name}:</p>
+            <div style={{ background: BG, borderRadius: 10, padding: "14px 16px", marginBottom: 16, border: `1px solid ${BORDER}` }}>
+              <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>URL</p>
+              <p style={{ color: ACCENT, fontSize: 13, fontWeight: 700, marginBottom: 10 }}>samesun-tasks.vercel.app</p>
+              <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>Email</p>
+              <p style={{ color: TEXT, fontSize: 13, fontWeight: 600, marginBottom: 10 }}>{newCredentials.email}</p>
+              <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>Password</p>
+              <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{newCredentials.password}</p>
             </div>
-            <button onClick={() => setNewCredentials(null)} style={{ width: "100%", padding: 11, background: "#F5A623", border: "none", color: "#0F1523", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+            <button onClick={() => setNewCredentials(null)} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
               Done
             </button>
           </div>
         </div>
       )}
 
-      {showAdd && (
-        <UserFormModal mode="add" teams={Object.values(teams)} onSave={handleAddUser} onCancel={() => setShowAdd(false)} />
-      )}
+      {showAdd && <UserFormModal mode="add" teams={Object.values(teams)} onSave={handleAddUser} onCancel={() => setShowAdd(false)} />}
       {editingUser && (
         <UserFormModal mode="edit" user={editingUser} teams={Object.values(teams)}
-          onSave={handleEditUser}
-          onDelete={() => handleDeleteUser(editingUser.id)}
-          onCancel={() => setEditingUser(null)} />
+          onSave={handleEditUser} onDelete={() => handleDeleteUser(editingUser.id)} onCancel={() => setEditingUser(null)} />
       )}
     </div>
   );
@@ -640,41 +621,31 @@ function PeopleView({ currentUser }) {
 
 // ── USER FORM MODAL ────────────────────────────────────────
 function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
-  const [form, setForm] = useState({
-    name:     user?.name     ?? "",
-    email:    user?.email    ?? "",
-    password: "",
-    team_id:  user?.team_id  ?? "",
-    role:     user?.role     ?? "member",
-  });
-  const [saving, setSaving]   = useState(false);
+  const [form, setForm] = useState({ name: user?.name ?? "", email: user?.email ?? "", password: "", team_id: user?.team_id ?? "", role: user?.role ?? "member" });
+  const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const update = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   async function handleSave() {
     if (!form.name.trim() || !form.email.trim()) return;
     if (mode === "add" && !form.password.trim()) return;
-    setSaving(true);
-    await onSave(form);
-    setSaving(false);
+    setSaving(true); await onSave(form); setSaving(false);
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
-      <div style={{ background: "#1A2235", borderRadius: 16, padding: 20, width: "100%", maxWidth: 420, border: "0.5px solid rgba(255,255,255,0.08)", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
+      <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 440, border: `1px solid ${BORDER}`, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <p style={{ color: "#fff", fontWeight: 600, fontSize: 15 }}>{mode === "add" ? "Add person" : "Edit person"}</p>
-          {mode === "edit" && (
-            !confirm
-              ? <button onClick={() => setConfirm(true)} style={{ background: "none", border: "none", color: "rgba(220,100,100,0.6)", fontSize: 11, cursor: "pointer" }}>Remove</button>
-              : <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Sure?</span>
-                  <button onClick={onDelete} style={{ background: "none", border: "none", color: "#e07070", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Yes, remove</button>
-                  <button onClick={() => setConfirm(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 11, cursor: "pointer" }}>Cancel</button>
-                </div>
+          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>{mode === "add" ? "Add person" : "Edit person"}</p>
+          {mode === "edit" && (!confirm
+            ? <button onClick={() => setConfirm(true)} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Remove</button>
+            : <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: MUTED }}>Sure?</span>
+                <button onClick={onDelete} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Yes, remove</button>
+                <button onClick={() => setConfirm(false)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer" }}>Cancel</button>
+              </div>
           )}
         </div>
-
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {[["Full name","name","text","Jane Smith"],["Email","email","email","jane@samesun.com"]].map(([lbl,key,type,ph]) => (
             <div key={key}>
@@ -683,9 +654,8 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
             </div>
           ))}
           <div>
-            <label style={labelStyle}>{mode === "add" ? "Password" : "New password (leave blank to keep current)"}</label>
-            <input type="password" value={form.password} onChange={e => update("password", e.target.value)}
-              placeholder={mode === "add" ? "Set a password" : "Leave blank to keep current"} style={inputStyle} />
+            <label style={labelStyle}>{mode === "add" ? "Password" : "New password (leave blank to keep)"}</label>
+            <input type="password" value={form.password} onChange={e => update("password", e.target.value)} placeholder={mode === "add" ? "Set a password" : "Leave blank to keep current"} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Team</label>
@@ -702,10 +672,9 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
             </select>
           </div>
         </div>
-
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: 11, background: "none", border: "0.5px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: 11, background: "#F5A623", border: "none", color: "#0F1523", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, opacity: saving ? 0.4 : 1 }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: 11, background: ACCENT, border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, opacity: saving ? 0.6 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
             {saving ? "Saving…" : mode === "add" ? "Add person" : "Save changes"}
           </button>
         </div>
@@ -731,30 +700,35 @@ function TaskRow({ instance, task, teams, users, isLast, onComplete, onEdit, onS
 
   return (
     <div style={isLast ? {} : rowBorder}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "13px 14px" }}>
-        <button onClick={onComplete} style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.18)", background: "none", cursor: "pointer", flexShrink: 0, marginTop: 1 }} />
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px" }}>
+        <button onClick={onComplete} style={{
+          width: 22, height: 22, borderRadius: "50%", border: `2px solid ${BORDER}`,
+          background: "#fff", cursor: "pointer", flexShrink: 0, marginTop: 1,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+        }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <span style={{ color: "#fff", fontSize: 13, fontWeight: 500 }}>{task.title}</span>
-              {task.is_private && <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginLeft: 6 }}>🔒</span>}
-              {isOverdue && <span style={{ color: "#e07070", fontSize: 10, marginLeft: 6, fontWeight: 500 }}>Overdue</span>}
+              <span style={{ color: TEXT, fontSize: 14, fontWeight: 600 }}>{task.title}</span>
+              {task.is_private && <span style={{ color: MUTED, fontSize: 11, marginLeft: 6 }}>🔒</span>}
+              {isOverdue && <span style={{ color: "#DC2626", fontSize: 11, marginLeft: 6, fontWeight: 600, background: "#FEF2F2", padding: "1px 6px", borderRadius: 4 }}>Overdue</span>}
             </div>
-            <button onClick={onEdit} style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.3)", fontSize: 10, padding: "3px 7px", borderRadius: 4, cursor: "pointer", flexShrink: 0 }}>Edit</button>
+            <button onClick={onEdit} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "3px 8px", borderRadius: 5, cursor: "pointer", flexShrink: 0, fontWeight: 500 }}>Edit</button>
           </div>
 
-          {task.description && <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, margin: "3px 0 0", lineHeight: 1.4 }}>{task.description}</p>}
+          {task.description && <p style={{ color: MUTED, fontSize: 12, margin: "4px 0 0", lineHeight: 1.5 }}>{task.description}</p>}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 7, alignItems: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" }}>
             {team && <TeamBadge teamSlug={team.slug} teamName={team.name} />}
             {task.status && task.status !== "not_started" && <StatusBadge status={task.status} />}
-            {task.frequency && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: 4 }}>{task.frequency}</span>}
-            {assignedTo && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>👤 {assignedTo.name.split(" ")[0]}</span>}
-            {task.location && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>📍 {task.location}</span>}
+            {task.frequency && <span style={{ fontSize: 11, color: MUTED, background: "#F3F4F6", padding: "2px 8px", borderRadius: 20, fontWeight: 500 }}>{task.frequency}</span>}
+            {assignedTo && <span style={{ fontSize: 11, color: MUTED, fontWeight: 500 }}>👤 {assignedTo.name.split(" ")[0]}</span>}
+            {task.location && <span style={{ fontSize: 11, color: MUTED }}>📍 {task.location}</span>}
           </div>
 
           {expanded && (
-            <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 7, display: "flex", flexDirection: "column", gap: 5 }}>
+            <div style={{ marginTop: 10, padding: "10px 12px", background: BG, borderRadius: 8, border: `1px solid ${BORDER}`, display: "flex", flexDirection: "column", gap: 6 }}>
               {[
                 ["Date added", task.created_at ? formatDate(task.created_at.split("T")[0]) : null],
                 ["Start date", task.start_date ? formatDate(task.start_date) : null],
@@ -762,19 +736,19 @@ function TaskRow({ instance, task, teams, users, isLast, onComplete, onEdit, onS
                 ["Assigned",   assignedTo?.name],
                 ["Location",   task.location],
               ].filter(([,v]) => v).map(([label, value]) => (
-                <div key={label} style={{ display: "flex", gap: 8, fontSize: 11 }}>
-                  <span style={{ color: "rgba(255,255,255,0.3)", width: 76, flexShrink: 0 }}>{label}</span>
-                  <span style={{ color: "rgba(255,255,255,0.65)" }}>{value}</span>
+                <div key={label} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                  <span style={{ color: MUTED, width: 80, flexShrink: 0, fontWeight: 500 }}>{label}</span>
+                  <span style={{ color: TEXT, fontWeight: 600 }}>{value}</span>
                 </div>
               ))}
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 12, marginTop: 7 }}>
-            <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer", padding: 0 }}>
+          <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+            <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500 }}>
               {expanded ? "Hide details" : "Details"}
             </button>
-            <button onClick={() => setShowNote(!showNote)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer", padding: 0 }}>
+            <button onClick={() => setShowNote(!showNote)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500 }}>
               {showNote ? "Hide note" : instance.notes ? "Edit note" : "+ Note"}
             </button>
           </div>
@@ -782,7 +756,7 @@ function TaskRow({ instance, task, teams, users, isLast, onComplete, onEdit, onS
           {showNote && (
             <textarea value={noteText} onChange={e => setNoteText(e.target.value)} onBlur={saveNote}
               placeholder="Add a note…" rows={2}
-              style={{ marginTop: 8, width: "100%", background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "8px 10px", color: "rgba(255,255,255,0.65)", fontSize: 11, resize: "none", outline: "none" }} />
+              style={{ marginTop: 8, width: "100%", background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", color: TEXT, fontSize: 12, resize: "none", outline: "none" }} />
           )}
         </div>
       </div>
@@ -798,19 +772,19 @@ function CompletedRow({ instance, task, teams, users, isLast, onUncomplete }) {
   const time        = instance.completed_at ? new Date(instance.completed_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", ...(isLast ? {} : rowBorder) }}>
-      <button onClick={onUncomplete} style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(245,166,35,0.15)", border: "1.5px solid rgba(245,166,35,0.3)", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <svg width="8" height="7" viewBox="0 0 10 8" fill="none">
-          <path d="M1 4l3 3 5-6" stroke="#F5A623" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", ...(isLast ? {} : rowBorder) }}>
+      <button onClick={onUncomplete} style={{ width: 22, height: 22, borderRadius: "50%", background: "#D1FAE5", border: "2px solid #6EE7B7", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <svg width="9" height="7" viewBox="0 0 10 8" fill="none">
+          <path d="M1 4l3 3 5-6" stroke="#065F46" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, textDecoration: "line-through" }}>{task.title}</span>
-        {team && <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, marginLeft: 6 }}>{team.name}</span>}
+        <span style={{ color: MUTED, fontSize: 13, textDecoration: "line-through" }}>{task.title}</span>
+        {team && <span style={{ color: MUTED, fontSize: 11, marginLeft: 6, opacity: 0.6 }}>{team.name}</span>}
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        {completedBy && <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 500 }}>{completedBy.name.split(" ")[0]}</p>}
-        {time && <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{time}</p>}
+        {completedBy && <p style={{ color: TEXT, fontSize: 12, fontWeight: 600 }}>{completedBy.name.split(" ")[0]}</p>}
+        {time && <p style={{ color: MUTED, fontSize: 11 }}>{time}</p>}
       </div>
     </div>
   );
@@ -819,21 +793,21 @@ function CompletedRow({ instance, task, teams, users, isLast, onUncomplete }) {
 // ── COMPLETE MODAL ─────────────────────────────────────────
 function CompleteModal({ task, users, onConfirm, onCancel }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
-      <div style={{ background: "#1A2235", borderRadius: 16, padding: 20, width: "100%", maxWidth: 400, border: "0.5px solid rgba(255,255,255,0.08)" }} onClick={e => e.stopPropagation()}>
-        <p style={{ color: "#fff", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Who completed this?</p>
-        {task && <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 16 }}>{task.title}</p>}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxHeight: 260, overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
+      <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 420, border: `1px solid ${BORDER}`, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
+        <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Who completed this?</p>
+        {task && <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>{task.title}</p>}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxHeight: 280, overflowY: "auto" }}>
           {users.map(u => (
-            <button key={u.id} onClick={() => onConfirm(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 8, cursor: "pointer" }}>
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(245,166,35,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#F5A623" }}>{u.name.split(" ").map(n => n[0]).join("").slice(0, 2)}</span>
+            <button key={u.id} onClick={() => onConfirm(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: BG, border: `1px solid ${BORDER}`, borderRadius: 10, cursor: "pointer", textAlign: "left" }}>
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#FEF3C7", border: "2px solid #FCD34D", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: "#92400E" }}>{u.name.split(" ").map(n => n[0]).join("").slice(0,2)}</span>
               </div>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>{u.name.split(" ")[0]}</span>
+              <span style={{ fontSize: 13, color: TEXT, fontWeight: 600 }}>{u.name.split(" ")[0]}</span>
             </button>
           ))}
         </div>
-        <button onClick={onCancel} style={{ width: "100%", marginTop: 12, padding: 10, background: "none", border: "0.5px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Cancel</button>
+        <button onClick={onCancel} style={{ width: "100%", marginTop: 12, padding: 11, background: "none", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>Cancel</button>
       </div>
     </div>
   );
@@ -853,15 +827,15 @@ function TaskFormFields({ form, update, teams, users }) {
         <textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Any extra detail…" rows={2} style={{ ...inputStyle, resize: "none" }} />
       </div>
       {[
-        ["Status", "status", STATUS_OPTIONS.map(o => [o.value, o.label])],
-        ["Team",   "team_id", [["", "No team"], ...teams.map(t => [t.id, t.name])]],
-        ["Assign to", "assigned_to", [["", "Unassigned"], ...users.map(u => [u.id, u.name])]],
-        ["Repeats", "frequency", [["","One-off (no repeat)"],["daily","Daily"],["weekly","Weekly"],["biweekly","Bi-weekly"],["monthly","Monthly"]]],
-      ].map(([lbl, key, opts]) => (
+        ["Status","status", STATUS_OPTIONS.map(o => [o.value, o.label])],
+        ["Team","team_id", [["","No team"],...teams.map(t=>[t.id,t.name])]],
+        ["Assign to","assigned_to",[["","Unassigned"],...users.map(u=>[u.id,u.name])]],
+        ["Repeats","frequency",[["","One-off"],["daily","Daily"],["weekly","Weekly"],["biweekly","Bi-weekly"],["monthly","Monthly"]]],
+      ].map(([lbl,key,opts]) => (
         <div key={key}>
           <label style={labelStyle}>{lbl}</label>
           <select value={form[key]} onChange={e => update(key, e.target.value)} style={sel}>
-            {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {opts.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
       ))}
@@ -873,13 +847,13 @@ function TaskFormFields({ form, update, teams, users }) {
         {[["Start date","start_date"],["Due date","end_date"]].map(([lbl,key]) => (
           <div key={key} style={{ flex: 1 }}>
             <label style={labelStyle}>{lbl}</label>
-            <input type="date" value={form[key]} onChange={e => update(key, e.target.value)} style={{ ...inputStyle, colorScheme: "dark" }} />
+            <input type="date" value={form[key]} onChange={e => update(key, e.target.value)} style={inputStyle} />
           </div>
         ))}
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-        <input type="checkbox" checked={form.is_private} onChange={e => update("is_private", e.target.checked)} style={{ accentColor: "#F5A623" }} />
-        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>🔒 Private — only visible to me</span>
+        <input type="checkbox" checked={form.is_private} onChange={e => update("is_private", e.target.checked)} style={{ accentColor: ACCENT, width: 15, height: 15 }} />
+        <span style={{ fontSize: 13, color: MUTED, fontWeight: 500 }}>🔒 Private — only visible to me</span>
       </label>
     </div>
   );
@@ -888,18 +862,13 @@ function TaskFormFields({ form, update, teams, users }) {
 // ── TASK FORM MODAL ────────────────────────────────────────
 function TaskFormModal({ mode, task, teams, users, onSave, onDelete, onCancel }) {
   const [form, setForm] = useState({
-    title:       task?.title       ?? "",
-    description: task?.description ?? "",
-    team_id:     task?.team_id     ?? "",
-    frequency:   task?.frequency   ?? "",
-    location:    task?.location    ?? "",
-    is_private:  task?.is_private  ?? false,
-    assigned_to: task?.assigned_to ?? "",
-    start_date:  task?.start_date  ?? "",
-    end_date:    task?.end_date    ?? "",
-    status:      task?.status      ?? "not_started",
+    title: task?.title ?? "", description: task?.description ?? "",
+    team_id: task?.team_id ?? "", frequency: task?.frequency ?? "",
+    location: task?.location ?? "", is_private: task?.is_private ?? false,
+    assigned_to: task?.assigned_to ?? "", start_date: task?.start_date ?? "",
+    end_date: task?.end_date ?? "", status: task?.status ?? "not_started",
   });
-  const [saving, setSaving]   = useState(false);
+  const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const update = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -911,24 +880,23 @@ function TaskFormModal({ mode, task, teams, users, onSave, onDelete, onCancel })
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
-      <div style={{ background: "#1A2235", borderRadius: 16, padding: 20, width: "100%", maxWidth: 420, border: "0.5px solid rgba(255,255,255,0.08)", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
+      <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 440, border: `1px solid ${BORDER}`, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <p style={{ color: "#fff", fontWeight: 600, fontSize: 15 }}>{mode === "edit" ? "Edit task" : "Add task"}</p>
-          {mode === "edit" && (
-            !confirm
-              ? <button onClick={() => setConfirm(true)} style={{ background: "none", border: "none", color: "rgba(220,100,100,0.6)", fontSize: 11, cursor: "pointer" }}>Delete</button>
-              : <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Sure?</span>
-                  <button onClick={onDelete} style={{ background: "none", border: "none", color: "#e07070", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>Yes</button>
-                  <button onClick={() => setConfirm(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 11, cursor: "pointer" }}>No</button>
-                </div>
+          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>{mode === "edit" ? "Edit task" : "Add task"}</p>
+          {mode === "edit" && (!confirm
+            ? <button onClick={() => setConfirm(true)} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Delete</button>
+            : <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: MUTED }}>Sure?</span>
+                <button onClick={onDelete} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Yes</button>
+                <button onClick={() => setConfirm(false)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer" }}>No</button>
+              </div>
           )}
         </div>
         <TaskFormFields form={form} update={update} teams={teams} users={users} />
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: 11, background: "none", border: "0.5px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
-          <button onClick={handleSave} disabled={!form.title.trim() || saving} style={{ flex: 1, padding: 11, background: "#F5A623", border: "none", color: "#0F1523", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, opacity: !form.title.trim() || saving ? 0.4 : 1 }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
+          <button onClick={handleSave} disabled={!form.title.trim() || saving} style={{ flex: 1, padding: 11, background: ACCENT, border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, opacity: !form.title.trim() || saving ? 0.5 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
             {saving ? "Saving…" : mode === "edit" ? "Save changes" : "Add task"}
           </button>
         </div>
@@ -955,9 +923,7 @@ function ReportModal({ instances, tasks, teams, users, onClose }) {
 
   function exportCSV() {
     const header = "Task,Team,Status,Assigned To,Completed By,Completed At,Frequency,Due Date,Location";
-    const blob = new Blob([[header, ...rows.map(r =>
-      `"${r.task}","${r.team}","${r.status}","${r.assigned_to}","${r.completed_by}","${r.completed_at}","${r.frequency}","${r.due_date}","${r.location}"`
-    )].join("\n")], { type: "text/csv" });
+    const blob = new Blob([[header,...rows.map(r=>`"${r.task}","${r.team}","${r.status}","${r.assigned_to}","${r.completed_by}","${r.completed_at}","${r.frequency}","${r.due_date}","${r.location}"`)].join("\n")],{type:"text/csv"});
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
     a.download = `samesun-tasks-${new Date().toISOString().split("T")[0]}.csv`; a.click();
   }
@@ -966,37 +932,35 @@ function ReportModal({ instances, tasks, teams, users, onClose }) {
   const pending = rows.filter(r => r.status !== "completed").length;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onClose}>
-      <div style={{ background: "#1A2235", borderRadius: 16, padding: 20, width: "100%", maxWidth: 520, border: "0.5px solid rgba(255,255,255,0.08)", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onClose}>
+      <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 520, border: `1px solid ${BORDER}`, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <p style={{ color: "#fff", fontWeight: 600, fontSize: 15 }}>Today's Report</p>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 18, cursor: "pointer" }}>×</button>
+          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>Today's Report</p>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: MUTED, fontSize: 20, cursor: "pointer" }}>×</button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-          {[["Completed", done, "#7dca9a", "rgba(100,200,120,0.08)"],["Still to do", pending, "#F5A623", "rgba(245,166,35,0.08)"]].map(([label, val, color, bg]) => (
-            <div key={label} style={{ background: bg, border: `0.5px solid ${color}33`, borderRadius: 10, padding: "14px 16px", textAlign: "center" }}>
-              <p style={{ fontSize: 28, fontWeight: 700, color, margin: 0 }}>{val}</p>
-              <p style={{ fontSize: 11, color, opacity: 0.7, margin: "2px 0 0" }}>{label}</p>
+          {[["Completed", done, "#065F46","#D1FAE5","#6EE7B7"],["Still to do", pending,"#92400E","#FEF3C7","#FCD34D"]].map(([label,val,text,bg,border]) => (
+            <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+              <p style={{ fontSize: 30, fontWeight: 800, color: text, margin: 0 }}>{val}</p>
+              <p style={{ fontSize: 12, color: text, margin: "3px 0 0", fontWeight: 600 }}>{label}</p>
             </div>
           ))}
         </div>
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
           {rows.map((r, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: BG, borderRadius: 8, border: `1px solid ${BORDER}` }}>
               <div>
-                <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: 500 }}>{r.task}</p>
-                <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, marginTop: 2 }}>
-                  {r.team} · {r.frequency}{r.assigned_to !== "—" ? ` · 👤 ${r.assigned_to}` : ""}
-                </p>
+                <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{r.task}</p>
+                <p style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>{r.team} · {r.frequency}{r.assigned_to !== "—" ? ` · 👤 ${r.assigned_to}` : ""}</p>
               </div>
               <div style={{ textAlign: "right" }}>
                 <StatusBadge status={r.status} />
-                {r.completed_by !== "—" && <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, marginTop: 3 }}>{r.completed_by}</p>}
+                {r.completed_by !== "—" && <p style={{ color: MUTED, fontSize: 11, marginTop: 3 }}>{r.completed_by}</p>}
               </div>
             </div>
           ))}
         </div>
-        <button onClick={exportCSV} style={{ width: "100%", padding: 12, background: "#F5A623", border: "none", color: "#0F1523", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+        <button onClick={exportCSV} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
           Export CSV
         </button>
       </div>
