@@ -8,7 +8,7 @@ const supabase = createClient(
 Deno.serve(async () => {
   const today = new Date();
   const todayISO = today.toISOString().split("T")[0];
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday
+  const dayOfWeek = today.getDay();
   const dayOfMonth = today.getDate();
 
   // Get all active recurring tasks
@@ -23,24 +23,35 @@ Deno.serve(async () => {
   const toCreate = [];
 
   for (const task of tasks ?? []) {
+    // Check if there's already an open (incomplete) instance for this task
+    const { data: openInstance } = await supabase
+      .from("task_instances")
+      .select("id")
+      .eq("task_id", task.id)
+      .neq("status", "completed")
+      .order("due_date", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (openInstance) continue; // Already has an open instance — skip
+
     // Check if instance already exists for today
-    const { data: existing } = await supabase
+    const { data: todayInstance } = await supabase
       .from("task_instances")
       .select("id")
       .eq("task_id", task.id)
       .eq("due_date", todayISO)
       .single();
 
-    if (existing) continue; // Skip — already created
+    if (todayInstance) continue; // Already created today — skip
 
     let shouldCreate = false;
 
     if (task.frequency === "daily") {
       shouldCreate = true;
     } else if (task.frequency === "weekly") {
-      shouldCreate = dayOfWeek === 1; // Monday
+      shouldCreate = dayOfWeek === 1;
     } else if (task.frequency === "biweekly") {
-      // Every other Monday — week 1 of the year trick
       const startOfYear = new Date(today.getFullYear(), 0, 1);
       const weekNum = Math.floor((today.getTime() - startOfYear.getTime()) / (7 * 24 * 60 * 60 * 1000));
       shouldCreate = dayOfWeek === 1 && weekNum % 2 === 0;

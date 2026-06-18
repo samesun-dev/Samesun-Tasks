@@ -46,6 +46,20 @@ function formatDate(d) {
   return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function isOverdue(dateStr) {
+  if (!dateStr) return false;
+  return new Date(dateStr + "T23:59:59") < new Date();
+}
+
+function daysDue(dateStr) {
+  if (!dateStr) return null;
+  const diff = Math.floor((new Date() - new Date(dateStr + "T00:00:00")) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return "Today";
+  if (diff === 1) return "1 day ago";
+  if (diff > 1) return `${diff} days ago`;
+  return null;
+}
+
 function SunLogo() {
   return (
     <div style={{ width: 34, height: 34, background: "#F5A623", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
@@ -71,16 +85,15 @@ function StatusBadge({ status }) {
   return <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600, background: s.bg, color: s.text }}>{label}</span>;
 }
 
-const BG       = "#FAFAF8";
-const CARD     = "#FFFFFF";
-const NAVY     = "#0F1523";
-const ACCENT   = "#F5A623";
-const BORDER   = "#EEEDE9";
-const TEXT     = "#1A2235";
-const MUTED    = "#9CA3AF";
-const DANGER   = "#991B1B";
+const BG     = "#FAFAF8";
+const CARD   = "#FFFFFF";
+const NAVY   = "#0F1523";
+const ACCENT = "#F5A623";
+const BORDER = "#EEEDE9";
+const TEXT   = "#1A2235";
+const MUTED  = "#9CA3AF";
 
-const card = { background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" };
+const card       = { background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" };
 const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${BORDER}`, background: "#FAFAF8", color: TEXT, fontSize: 13, outline: "none" };
 const labelStyle = { display: "block", fontSize: 12, color: MUTED, marginBottom: 5, fontWeight: 500 };
 const rowBorder  = { borderBottom: `1px solid ${BORDER}` };
@@ -128,7 +141,7 @@ function LoginScreen({ onLogin }) {
               <label style={labelStyle}>Password</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" required style={inputStyle} />
             </div>
-            {error && <p style={{ color: DANGER, fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8, border: "1px solid #FECACA" }}>{error}</p>}
+            {error && <p style={{ color: "#991B1B", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8, border: "1px solid #FECACA" }}>{error}</p>}
             <button type="submit" disabled={loading} style={{ background: ACCENT, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: loading ? 0.7 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
               {loading ? "Signing in…" : "Sign in →"}
             </button>
@@ -143,7 +156,6 @@ function LoginScreen({ onLogin }) {
 // ── MAIN SHELL ─────────────────────────────────────────────
 function Main({ user, onLogout }) {
   const [tab, setTab] = useState("tasks");
-
   return (
     <div style={{ minHeight: "100vh", background: BG }}>
       <div style={{ background: NAVY, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
@@ -160,16 +172,15 @@ function Main({ user, onLogout }) {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{user.name}</span>
-              <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer" }}>
-                Sign out
-              </button>
+              <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer" }}>Sign out</button>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 0 }}>
+          <div style={{ display: "flex" }}>
             {[["tasks","Tasks"],["history","History"],["people","People"]].map(([key, label]) => (
               <button key={key} onClick={() => setTab(key)} style={{
                 background: "none", border: "none", cursor: "pointer", padding: "10px 16px",
-                fontSize: 13, fontWeight: 600, color: tab === key ? ACCENT : "rgba(255,255,255,0.45)",
+                fontSize: 13, fontWeight: 600,
+                color: tab === key ? ACCENT : "rgba(255,255,255,0.45)",
                 borderBottom: tab === key ? `2px solid ${ACCENT}` : "2px solid transparent",
               }}>{label}</button>
             ))}
@@ -179,7 +190,7 @@ function Main({ user, onLogout }) {
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 20px 80px" }}>
         {tab === "tasks"   && <TaskView   user={user} />}
         {tab === "history" && <HistoryView />}
-        {tab === "people"  && <PeopleView currentUser={user} />}
+        {tab === "people"  && <PeopleView />}
       </div>
     </div>
   );
@@ -205,15 +216,21 @@ function TaskView({ user }) {
     const [{ data: teamData }, { data: userData }, { data: instanceData }] = await Promise.all([
       supabase.from("teams").select("*"),
       supabase.from("users").select("id,name,email,team_id"),
-      supabase.from("task_instances").select("*").eq("due_date", today).order("created_at"),
+      // Load ALL incomplete instances + today's completed ones
+      supabase.from("task_instances").select("*")
+        .or(`status.neq.completed,due_date.eq.${today}`)
+        .order("due_date", { ascending: true }),
     ]);
+
     const teamMap = {}; teamData?.forEach(t => { teamMap[t.id] = t; }); setTeams(teamMap);
     const userMap = {}; userData?.forEach(u => { userMap[u.id] = u; }); setUsers(userMap);
+
     if (!instanceData?.length) { setInstances([]); setLoading(false); return; }
     const taskIds = [...new Set(instanceData.map(i => i.task_id))];
     const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds);
     const taskMap = {}; taskData?.forEach(t => { taskMap[t.id] = t; }); setTasks(taskMap);
-    setInstances(instanceData); setLoading(false);
+    setInstances(instanceData);
+    setLoading(false);
   }, [today]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -226,8 +243,18 @@ function TaskView({ user }) {
     return teams[task.team_id]?.slug === activeTeam;
   });
 
+  // Sort: overdue first, then by due_date, then rest
+  const pending = filtered
+    .filter(i => i.status !== "completed")
+    .sort((a, b) => {
+      const aOver = a.due_date < today ? -1 : 0;
+      const bOver = b.due_date < today ? -1 : 0;
+      if (aOver !== bOver) return aOver - bOver;
+      return a.due_date.localeCompare(b.due_date);
+    });
+
   const completed = filtered.filter(i => i.status === "completed");
-  const pending   = filtered.filter(i => i.status !== "completed");
+  const overdueCount = pending.filter(i => i.due_date < today).length;
   const pct = filtered.length ? Math.round((completed.length / filtered.length) * 100) : 0;
 
   return (
@@ -235,7 +262,10 @@ function TaskView({ user }) {
       {/* Progress card */}
       <div style={{ background: NAVY, borderRadius: 14, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
-          <span>{completed.length} of {filtered.length} tasks done today</span>
+          <span>
+            {completed.length} of {filtered.length} tasks done
+            {overdueCount > 0 && <span style={{ color: "#FCA5A5", marginLeft: 8 }}>· {overdueCount} overdue</span>}
+          </span>
           <span style={{ color: ACCENT, fontWeight: 700 }}>{pct}%</span>
         </div>
         <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3 }}>
@@ -247,7 +277,7 @@ function TaskView({ user }) {
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
         {TEAMS.map(t => (
           <button key={t.slug} onClick={() => setActiveTeam(t.slug)} style={{
-            padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
+            padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap",
             background: activeTeam === t.slug ? ACCENT : CARD,
             color: activeTeam === t.slug ? "#fff" : MUTED,
             border: activeTeam === t.slug ? `1px solid ${ACCENT}` : `1px solid ${BORDER}`,
@@ -258,10 +288,9 @@ function TaskView({ user }) {
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => setShowAddForm(true)} style={{
-          flex: 1, background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700,
-          padding: "11px", borderRadius: 10, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)",
-        }}>+ Add task</button>
+        <button onClick={() => setShowAddForm(true)} style={{ flex: 1, background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "11px", borderRadius: 10, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
+          + Add task
+        </button>
         <button onClick={() => setShowReport(true)} style={ghostBtn}>Report</button>
       </div>
 
@@ -271,14 +300,20 @@ function TaskView({ user }) {
         <>
           {pending.length > 0 && (
             <>
-              <p style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Pending · {pending.length}</p>
+              <p style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Open · {pending.length}
+              </p>
               <div style={card}>
                 {pending.map((inst, i) => (
                   <TaskRow key={inst.id} instance={inst} task={tasks[inst.task_id]}
                     teams={teams} users={users} isLast={i === pending.length - 1}
+                    today={today}
                     onComplete={() => setCompletingId(inst.id)}
                     onEdit={() => setEditingTask(tasks[inst.task_id])}
-                    onStatusChange={async status => { await supabase.from("task_instances").update({ status }).eq("id", inst.id); loadData(); }} />
+                    onStatusChange={async status => {
+                      await supabase.from("task_instances").update({ status }).eq("id", inst.id);
+                      loadData();
+                    }} />
                 ))}
               </div>
             </>
@@ -369,15 +404,15 @@ function TaskView({ user }) {
 
 // ── HISTORY VIEW ───────────────────────────────────────────
 function HistoryView() {
-  const [instances, setInstances] = useState([]);
-  const [tasks, setTasks]         = useState({});
-  const [teams, setTeams]         = useState({});
-  const [users, setUsers]         = useState({});
-  const [loading, setLoading]     = useState(true);
+  const [instances, setInstances]   = useState([]);
+  const [tasks, setTasks]           = useState({});
+  const [teams, setTeams]           = useState({});
+  const [users, setUsers]           = useState({});
+  const [loading, setLoading]       = useState(true);
   const [activeTeam, setActiveTeam] = useState("all");
-  const [preset, setPreset]       = useState("yesterday");
-  const [from, setFrom]           = useState("");
-  const [to, setTo]               = useState("");
+  const [preset, setPreset]         = useState("yesterday");
+  const [from, setFrom]             = useState("");
+  const [to, setTo]                 = useState("");
 
   function getRange() {
     const today = new Date();
@@ -428,8 +463,7 @@ function HistoryView() {
         {[["yesterday","Yesterday"],["week","This week"],["month","This month"],["custom","Custom"]].map(([key, label]) => (
           <button key={key} onClick={() => setPreset(key)} style={{
             padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer",
-            background: preset === key ? ACCENT : CARD,
-            color: preset === key ? "#fff" : MUTED,
+            background: preset === key ? ACCENT : CARD, color: preset === key ? "#fff" : MUTED,
             border: preset === key ? `1px solid ${ACCENT}` : `1px solid ${BORDER}`,
             boxShadow: preset === key ? "0 2px 8px rgba(245,166,35,0.3)" : "none",
           }}>{label}</button>
@@ -449,8 +483,7 @@ function HistoryView() {
         {TEAMS.map(t => (
           <button key={t.slug} onClick={() => setActiveTeam(t.slug)} style={{
             padding: "5px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap",
-            background: activeTeam === t.slug ? NAVY : CARD,
-            color: activeTeam === t.slug ? "#fff" : MUTED,
+            background: activeTeam === t.slug ? NAVY : CARD, color: activeTeam === t.slug ? "#fff" : MUTED,
             border: activeTeam === t.slug ? `1px solid ${NAVY}` : `1px solid ${BORDER}`,
           }}>{t.name}</button>
         ))}
@@ -458,7 +491,7 @@ function HistoryView() {
 
       {!loading && filtered.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {[["Completed", done, "#065F46", "#D1FAE5", "#6EE7B7"],["Not done", pending, "#92400E", "#FEF3C7", "#FCD34D"]].map(([label, val, text, bg, border]) => (
+          {[["Completed", done, "#065F46","#D1FAE5","#6EE7B7"],["Not done", pending,"#92400E","#FEF3C7","#FCD34D"]].map(([label,val,text,bg,border]) => (
             <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: text, margin: 0 }}>{val}</p>
               <p style={{ fontSize: 12, color: text, opacity: 0.8, margin: "3px 0 0", fontWeight: 600 }}>{label}</p>
@@ -510,12 +543,12 @@ function HistoryView() {
 }
 
 // ── PEOPLE VIEW ────────────────────────────────────────────
-function PeopleView({ currentUser }) {
-  const [users, setUsers]           = useState([]);
-  const [teams, setTeams]           = useState({});
-  const [loading, setLoading]       = useState(true);
-  const [showAdd, setShowAdd]       = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+function PeopleView() {
+  const [users, setUsers]                   = useState([]);
+  const [teams, setTeams]                   = useState({});
+  const [loading, setLoading]               = useState(true);
+  const [showAdd, setShowAdd]               = useState(false);
+  const [editingUser, setEditingUser]       = useState(null);
   const [newCredentials, setNewCredentials] = useState(null);
 
   const loadPeople = useCallback(async () => {
@@ -532,24 +565,13 @@ function PeopleView({ currentUser }) {
   useEffect(() => { loadPeople(); }, [loadPeople]);
 
   async function handleAddUser(form) {
-    const { data } = await supabase.from("users").insert({
-      name: form.name, email: form.email, password: form.password,
-      team_id: form.team_id || null, role: "member",
-    }).select().single();
+    const { data } = await supabase.from("users").insert({ name: form.name, email: form.email, password: form.password, team_id: form.team_id || null, role: "member" }).select().single();
     if (data) setNewCredentials({ name: form.name, email: form.email, password: form.password });
     setShowAdd(false); loadPeople();
   }
 
   async function handleEditUser(form) {
-    await supabase.from("users").update({
-      name: form.name, email: form.email, team_id: form.team_id || null, role: form.role,
-      ...(form.password ? { password: form.password } : {}),
-    }).eq("id", editingUser.id);
-    setEditingUser(null); loadPeople();
-  }
-
-  async function handleDeleteUser(id) {
-    await supabase.from("users").delete().eq("id", id);
+    await supabase.from("users").update({ name: form.name, email: form.email, team_id: form.team_id || null, role: form.role, ...(form.password ? { password: form.password } : {}) }).eq("id", editingUser.id);
     setEditingUser(null); loadPeople();
   }
 
@@ -559,14 +581,10 @@ function PeopleView({ currentUser }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <p style={{ color: MUTED, fontSize: 13, fontWeight: 500 }}>{users.length} people</p>
-        <button onClick={() => setShowAdd(true)} style={{ background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "8px 16px", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
-          + Add person
-        </button>
+        <button onClick={() => setShowAdd(true)} style={{ background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "8px 16px", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>+ Add person</button>
       </div>
 
-      {loading ? (
-        <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p>
-      ) : (
+      {loading ? <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p> : (
         <div style={card}>
           {users.map((u, i) => {
             const team = teams[u.team_id];
@@ -596,25 +614,20 @@ function PeopleView({ currentUser }) {
             <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, marginBottom: 4 }}>✅ Person added!</p>
             <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>Share these login details with {newCredentials.name}:</p>
             <div style={{ background: BG, borderRadius: 10, padding: "14px 16px", marginBottom: 16, border: `1px solid ${BORDER}` }}>
-              <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>URL</p>
-              <p style={{ color: ACCENT, fontSize: 13, fontWeight: 700, marginBottom: 10 }}>samesun-tasks.vercel.app</p>
-              <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>Email</p>
-              <p style={{ color: TEXT, fontSize: 13, fontWeight: 600, marginBottom: 10 }}>{newCredentials.email}</p>
-              <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>Password</p>
-              <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{newCredentials.password}</p>
+              {[["URL","samesun-tasks.vercel.app"],["Email",newCredentials.email],["Password",newCredentials.password]].map(([lbl,val]) => (
+                <div key={lbl} style={{ marginBottom: 10 }}>
+                  <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{lbl}</p>
+                  <p style={{ color: lbl === "URL" ? ACCENT : TEXT, fontSize: 13, fontWeight: 700 }}>{val}</p>
+                </div>
+              ))}
             </div>
-            <button onClick={() => setNewCredentials(null)} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
-              Done
-            </button>
+            <button onClick={() => setNewCredentials(null)} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Done</button>
           </div>
         </div>
       )}
 
       {showAdd && <UserFormModal mode="add" teams={Object.values(teams)} onSave={handleAddUser} onCancel={() => setShowAdd(false)} />}
-      {editingUser && (
-        <UserFormModal mode="edit" user={editingUser} teams={Object.values(teams)}
-          onSave={handleEditUser} onDelete={() => handleDeleteUser(editingUser.id)} onCancel={() => setEditingUser(null)} />
-      )}
+      {editingUser && <UserFormModal mode="edit" user={editingUser} teams={Object.values(teams)} onSave={handleEditUser} onDelete={async () => { await supabase.from("users").delete().eq("id", editingUser.id); setEditingUser(null); loadPeople(); }} onCancel={() => setEditingUser(null)} />}
     </div>
   );
 }
@@ -641,8 +654,8 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
             ? <button onClick={() => setConfirm(true)} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Remove</button>
             : <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: MUTED }}>Sure?</span>
-                <button onClick={onDelete} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Yes, remove</button>
-                <button onClick={() => setConfirm(false)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer" }}>Cancel</button>
+                <button onClick={onDelete} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Yes</button>
+                <button onClick={() => setConfirm(false)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer" }}>No</button>
               </div>
           )}
         </div>
@@ -655,7 +668,7 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
           ))}
           <div>
             <label style={labelStyle}>{mode === "add" ? "Password" : "New password (leave blank to keep)"}</label>
-            <input type="password" value={form.password} onChange={e => update("password", e.target.value)} placeholder={mode === "add" ? "Set a password" : "Leave blank to keep current"} style={inputStyle} />
+            <input type="password" value={form.password} onChange={e => update("password", e.target.value)} placeholder={mode === "add" ? "Set a password" : "Leave blank to keep"} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Team</label>
@@ -674,7 +687,7 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button onClick={onCancel} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: 11, background: ACCENT, border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, opacity: saving ? 0.6 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: 11, background: ACCENT, border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>
             {saving ? "Saving…" : mode === "add" ? "Add person" : "Save changes"}
           </button>
         </div>
@@ -684,38 +697,48 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
 }
 
 // ── TASK ROW ───────────────────────────────────────────────
-function TaskRow({ instance, task, teams, users, isLast, onComplete, onEdit, onStatusChange }) {
+function TaskRow({ instance, task, teams, users, isLast, today, onComplete, onEdit, onStatusChange }) {
   const [expanded, setExpanded] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState(instance.notes || "");
   if (!task) return null;
 
-  const team       = teams[task.team_id];
-  const assignedTo = users[task.assigned_to];
-  const isOverdue  = task.end_date && new Date(task.end_date) < new Date();
+  const team        = teams[task.team_id];
+  const assignedTo  = users[task.assigned_to];
+  const taskOverdue = isOverdue(instance.due_date) && instance.due_date < today;
+  const daysAgo     = daysDue(instance.due_date);
+  const hasDueDate  = !!task.end_date;
+  const dueDateOver = isOverdue(task.end_date);
 
   async function saveNote() {
     await supabase.from("task_instances").update({ notes: noteText }).eq("id", instance.id);
   }
 
   return (
-    <div style={isLast ? {} : rowBorder}>
+    <div style={{ ...(isLast ? {} : rowBorder), ...(taskOverdue ? { background: "#FFFBEB" } : {}) }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px" }}>
-        <button onClick={onComplete} style={{
-          width: 22, height: 22, borderRadius: "50%", border: `2px solid ${BORDER}`,
-          background: "#fff", cursor: "pointer", flexShrink: 0, marginTop: 1,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-        }} />
+        <button onClick={onComplete} style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${taskOverdue ? "#FCA5A5" : BORDER}`, background: "#fff", cursor: "pointer", flexShrink: 0, marginTop: 1, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
             <div style={{ flex: 1 }}>
               <span style={{ color: TEXT, fontSize: 14, fontWeight: 600 }}>{task.title}</span>
               {task.is_private && <span style={{ color: MUTED, fontSize: 11, marginLeft: 6 }}>🔒</span>}
-              {isOverdue && <span style={{ color: "#DC2626", fontSize: 11, marginLeft: 6, fontWeight: 600, background: "#FEF2F2", padding: "1px 6px", borderRadius: 4 }}>Overdue</span>}
             </div>
-            <button onClick={onEdit} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "3px 8px", borderRadius: 5, cursor: "pointer", flexShrink: 0, fontWeight: 500 }}>Edit</button>
+            {/* Right side — due date + edit */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              {hasDueDate && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: dueDateOver ? "#DC2626" : MUTED, background: dueDateOver ? "#FEF2F2" : "#F3F4F6", padding: "2px 8px", borderRadius: 20 }}>
+                  Due {formatDate(task.end_date)}
+                </span>
+              )}
+              <button onClick={onEdit} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "3px 8px", borderRadius: 5, cursor: "pointer", fontWeight: 500 }}>Edit</button>
+            </div>
           </div>
+
+          {taskOverdue && daysAgo && (
+            <p style={{ fontSize: 11, color: "#DC2626", fontWeight: 600, marginTop: 2 }}>⚠️ Overdue — added {daysAgo}</p>
+          )}
 
           {task.description && <p style={{ color: MUTED, fontSize: 12, margin: "4px 0 0", lineHeight: 1.5 }}>{task.description}</p>}
 
@@ -799,7 +822,7 @@ function CompleteModal({ task, users, onConfirm, onCancel }) {
         {task && <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>{task.title}</p>}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, maxHeight: 280, overflowY: "auto" }}>
           {users.map(u => (
-            <button key={u.id} onClick={() => onConfirm(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: BG, border: `1px solid ${BORDER}`, borderRadius: 10, cursor: "pointer", textAlign: "left" }}>
+            <button key={u.id} onClick={() => onConfirm(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: BG, border: `1px solid ${BORDER}`, borderRadius: 10, cursor: "pointer" }}>
               <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#FEF3C7", border: "2px solid #FCD34D", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, color: "#92400E" }}>{u.name.split(" ").map(n => n[0]).join("").slice(0,2)}</span>
               </div>
@@ -827,8 +850,8 @@ function TaskFormFields({ form, update, teams, users }) {
         <textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Any extra detail…" rows={2} style={{ ...inputStyle, resize: "none" }} />
       </div>
       {[
-        ["Status","status", STATUS_OPTIONS.map(o => [o.value, o.label])],
-        ["Team","team_id", [["","No team"],...teams.map(t=>[t.id,t.name])]],
+        ["Status","status",STATUS_OPTIONS.map(o=>[o.value,o.label])],
+        ["Team","team_id",[["","No team"],...teams.map(t=>[t.id,t.name])]],
         ["Assign to","assigned_to",[["","Unassigned"],...users.map(u=>[u.id,u.name])]],
         ["Repeats","frequency",[["","One-off"],["daily","Daily"],["weekly","Weekly"],["biweekly","Bi-weekly"],["monthly","Monthly"]]],
       ].map(([lbl,key,opts]) => (
@@ -868,7 +891,7 @@ function TaskFormModal({ mode, task, teams, users, onSave, onDelete, onCancel })
     assigned_to: task?.assigned_to ?? "", start_date: task?.start_date ?? "",
     end_date: task?.end_date ?? "", status: task?.status ?? "not_started",
   });
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]   = useState(false);
   const [confirm, setConfirm] = useState(false);
   const update = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -896,7 +919,7 @@ function TaskFormModal({ mode, task, teams, users, onSave, onDelete, onCancel })
         <TaskFormFields form={form} update={update} teams={teams} users={users} />
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button onClick={onCancel} style={{ flex: 1, padding: 11, background: "none", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
-          <button onClick={handleSave} disabled={!form.title.trim() || saving} style={{ flex: 1, padding: 11, background: ACCENT, border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, opacity: !form.title.trim() || saving ? 0.5 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
+          <button onClick={handleSave} disabled={!form.title.trim() || saving} style={{ flex: 1, padding: 11, background: ACCENT, border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, opacity: !form.title.trim() || saving ? 0.5 : 1 }}>
             {saving ? "Saving…" : mode === "edit" ? "Save changes" : "Add task"}
           </button>
         </div>
@@ -935,11 +958,11 @@ function ReportModal({ instances, tasks, teams, users, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onClose}>
       <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 520, border: `1px solid ${BORDER}`, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>Today's Report</p>
+          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>Report</p>
           <button onClick={onClose} style={{ background: "none", border: "none", color: MUTED, fontSize: 20, cursor: "pointer" }}>×</button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-          {[["Completed", done, "#065F46","#D1FAE5","#6EE7B7"],["Still to do", pending,"#92400E","#FEF3C7","#FCD34D"]].map(([label,val,text,bg,border]) => (
+          {[["Completed",done,"#065F46","#D1FAE5","#6EE7B7"],["Still to do",pending,"#92400E","#FEF3C7","#FCD34D"]].map(([label,val,text,bg,border]) => (
             <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
               <p style={{ fontSize: 30, fontWeight: 800, color: text, margin: 0 }}>{val}</p>
               <p style={{ fontSize: 12, color: text, margin: "3px 0 0", fontWeight: 600 }}>{label}</p>
@@ -960,7 +983,7 @@ function ReportModal({ instances, tasks, teams, users, onClose }) {
             </div>
           ))}
         </div>
-        <button onClick={exportCSV} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
+        <button onClick={exportCSV} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
           Export CSV
         </button>
       </div>
