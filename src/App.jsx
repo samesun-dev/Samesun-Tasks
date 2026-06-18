@@ -28,7 +28,6 @@ const TEAM_COLORS = {
 const STATUS_OPTIONS = [
   { value: "not_started", label: "Not started" },
   { value: "in_progress", label: "In progress" },
-  { value: "blocked",     label: "Blocked" },
   { value: "completed",   label: "Completed" },
 ];
 
@@ -51,13 +50,18 @@ function isOverdue(dateStr) {
   return new Date(dateStr + "T23:59:59") < new Date();
 }
 
-function daysDue(dateStr) {
-  if (!dateStr) return null;
-  const diff = Math.floor((new Date() - new Date(dateStr + "T00:00:00")) / (1000 * 60 * 60 * 24));
-  if (diff === 0) return "Today";
-  if (diff === 1) return "1 day ago";
-  if (diff > 1) return `${diff} days ago`;
-  return null;
+function getPastCycleDates(frequency, count = 5) {
+  const dates = [];
+  const now = new Date();
+  for (let i = count; i >= 1; i--) {
+    const d = new Date(now);
+    if (frequency === "daily") d.setDate(d.getDate() - i);
+    else if (frequency === "weekly") d.setDate(d.getDate() - i * 7);
+    else if (frequency === "biweekly") d.setDate(d.getDate() - i * 14);
+    else if (frequency === "monthly") d.setMonth(d.getMonth() - i);
+    dates.push(d.toISOString().split("T")[0]);
+  }
+  return dates;
 }
 
 function SunLogo() {
@@ -156,10 +160,36 @@ function LoginScreen({ onLogin }) {
 // ── MAIN SHELL ─────────────────────────────────────────────
 function Main({ user, onLogout }) {
   const [tab, setTab] = useState("tasks");
+  const [showCompleted, setShowCompleted]       = useState(false);
+  const [completedInstances, setCompletedInstances] = useState([]);
+  const [completedTasks, setCompletedTasks]     = useState({});
+  const [completedAll, setCompletedAll]         = useState(false);
+  const [teams, setTeams]                       = useState({});
+  const [users, setUsers]                       = useState({});
+
+  const loadCompleted = useCallback(async (allTime = false) => {
+    const cutoff = allTime ? null : (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0]; })();
+    let query = supabase.from("task_instances").select("*").eq("status", "completed").order("completed_at", { ascending: false });
+    if (cutoff) query = query.gte("completed_at", cutoff);
+    const { data: instanceData } = await query;
+    if (!instanceData?.length) { setCompletedInstances([]); return; }
+    const taskIds = [...new Set(instanceData.map(i => i.task_id))];
+    const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds);
+    const taskMap = {}; taskData?.forEach(t => { taskMap[t.id] = t; }); setCompletedTasks(taskMap);
+    setCompletedInstances(instanceData);
+  }, []);
+
+  useEffect(() => {
+    supabase.from("teams").select("*").then(({ data }) => { const m = {}; data?.forEach(t => { m[t.id] = t; }); setTeams(m); });
+    supabase.from("users").select("id,name,email,team_id").then(({ data }) => { const m = {}; data?.forEach(u => { m[u.id] = u; }); setUsers(m); });
+  }, []);
+
+  useEffect(() => { if (showCompleted) loadCompleted(completedAll); }, [showCompleted, completedAll, loadCompleted]);
+
   return (
     <div style={{ minHeight: "100vh", background: BG }}>
       <div style={{ background: NAVY, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-        <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 20px" }}>
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 20px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <SunLogo />
@@ -187,28 +217,57 @@ function Main({ user, onLogout }) {
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 20px 80px" }}>
-        {tab === "tasks"   && <TaskView   user={user} />}
+
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 20px 80px" }}>
+        {tab === "tasks"   && <TaskView user={user} allUsers={users} allTeams={teams} onTaskComplete={() => { if (showCompleted) loadCompleted(completedAll); }} />}
         {tab === "history" && <HistoryView />}
         {tab === "people"  && <PeopleView />}
       </div>
+
+      {/* Completed button */}
+      <button onClick={() => setShowCompleted(true)} style={{
+        position: "fixed", right: 20, bottom: 24,
+        background: NAVY, color: "#fff", border: "none", borderRadius: 12,
+        padding: "11px 18px", cursor: "pointer", zIndex: 20,
+        fontSize: 13, fontWeight: 600, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+          <path d="M2 8l4 4 8-8" stroke="#F5A623" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Completed
+      </button>
+
+      {showCompleted && (
+        <CompletedDrawer
+          instances={completedInstances} tasks={completedTasks}
+          teams={teams} users={users} allTime={completedAll}
+          onToggleAllTime={() => setCompletedAll(!completedAll)}
+          onClose={() => setShowCompleted(false)}
+          onUncomplete={async id => {
+            await supabase.from("task_instances").update({ status: "not_started", completed_by: null, completed_at: null }).eq("id", id);
+            loadCompleted(completedAll);
+          }} />
+      )}
     </div>
   );
 }
 
 // ── TASK VIEW ──────────────────────────────────────────────
-function TaskView({ user }) {
-  const [activeTeam, setActiveTeam]       = useState("all");
-  const [instances, setInstances]         = useState([]);
-  const [tasks, setTasks]                 = useState({});
-  const [teams, setTeams]                 = useState({});
-  const [users, setUsers]                 = useState({});
-  const [loading, setLoading]             = useState(true);
-  const [completingId, setCompletingId]   = useState(null);
-  const [editingTask, setEditingTask]     = useState(null);
-  const [showAddForm, setShowAddForm]     = useState(false);
-  const [showReport, setShowReport]       = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+function TaskView({ user, allUsers, allTeams, onTaskComplete }) {
+  const [activeTeam, setActiveTeam]         = useState("all");
+  const [activePerson, setActivePerson]     = useState("all");
+  const [showMyTasks, setShowMyTasks]       = useState(false);
+  const [instances, setInstances]           = useState([]);
+  const [tasks, setTasks]                   = useState({});
+  const [teams, setTeams]                   = useState(allTeams ?? {});
+  const [users, setUsers]                   = useState(allUsers ?? {});
+  const [loading, setLoading]               = useState(true);
+  const [statusPickerId, setStatusPickerId] = useState(null);
+  const [completingId, setCompletingId]     = useState(null);
+  const [editingTask, setEditingTask]       = useState(null);
+  const [showAddForm, setShowAddForm]       = useState(false);
+  const [showReport, setShowReport]         = useState(false);
   const today = todayISO();
 
   const loadData = useCallback(async () => {
@@ -216,54 +275,79 @@ function TaskView({ user }) {
     const [{ data: teamData }, { data: userData }, { data: instanceData }] = await Promise.all([
       supabase.from("teams").select("*"),
       supabase.from("users").select("id,name,email,team_id"),
-      // Load ALL incomplete instances + today's completed ones
-      supabase.from("task_instances").select("*")
-        .or(`status.neq.completed,due_date.eq.${today}`)
-        .order("due_date", { ascending: true }),
+      supabase.from("task_instances").select("*").neq("status", "completed").order("due_date", { ascending: true }),
     ]);
-
     const teamMap = {}; teamData?.forEach(t => { teamMap[t.id] = t; }); setTeams(teamMap);
     const userMap = {}; userData?.forEach(u => { userMap[u.id] = u; }); setUsers(userMap);
-
     if (!instanceData?.length) { setInstances([]); setLoading(false); return; }
     const taskIds = [...new Set(instanceData.map(i => i.task_id))];
     const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds);
     const taskMap = {}; taskData?.forEach(t => { taskMap[t.id] = t; }); setTasks(taskMap);
-    setInstances(instanceData);
-    setLoading(false);
-  }, [today]);
+    setInstances(instanceData); setLoading(false);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // People in the active team
+  const teamObj = TEAMS.find(t => t.slug === activeTeam);
+  const teamRecord = teamObj ? Object.values(teams).find(t => t.slug === activeTeam) : null;
+  const peopleInTeam = teamRecord
+    ? Object.values(users).filter(u => u.team_id === teamRecord.id)
+    : [];
 
   const filtered = instances.filter(inst => {
     const task = tasks[inst.task_id];
     if (!task) return false;
     if (task.is_private && task.created_by !== user.id) return false;
+    if (showMyTasks && task.assigned_to !== user.id) return false;
+    if (activePerson !== "all" && task.assigned_to !== activePerson) return false;
     if (activeTeam === "all") return true;
     return teams[task.team_id]?.slug === activeTeam;
   });
 
-  // Sort: overdue first, then by due_date, then rest
-  const pending = filtered
-    .filter(i => i.status !== "completed")
-    .sort((a, b) => {
-      const aOver = a.due_date < today ? -1 : 0;
-      const bOver = b.due_date < today ? -1 : 0;
-      if (aOver !== bOver) return aOver - bOver;
-      return a.due_date.localeCompare(b.due_date);
-    });
+  const weekEnd  = (() => { const d = new Date(); d.setDate(d.getDate() + (7 - d.getDay())); return d.toISOString().split("T")[0]; })();
+  const monthEnd = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0]; })();
 
-  const completed = filtered.filter(i => i.status === "completed");
-  const overdueCount = pending.filter(i => i.due_date < today).length;
-  const pct = filtered.length ? Math.round((completed.length / filtered.length) * 100) : 0;
+  function taskEndDate(inst) { return tasks[inst.task_id]?.end_date ?? null; }
+
+  const groups = {
+    overdue:   filtered.filter(i => { const e = taskEndDate(i); return e && e < today; }),
+    today:     filtered.filter(i => { const e = taskEndDate(i); return e === today; }),
+    week:      filtered.filter(i => { const e = taskEndDate(i); return e && e > today && e <= weekEnd; }),
+    month:     filtered.filter(i => { const e = taskEndDate(i); return e && e > weekEnd && e <= monthEnd; }),
+    later:     filtered.filter(i => { const e = taskEndDate(i); return e && e > monthEnd; }),
+    noDueDate: filtered.filter(i => { const e = taskEndDate(i); return !e; }),
+  };
+
+  const [todayCompleted, setTodayCompleted] = useState(0);
+  useEffect(() => {
+    supabase.from("task_instances").select("id", { count: "exact" })
+      .eq("status", "completed").gte("completed_at", today + "T00:00:00")
+      .then(({ count }) => setTodayCompleted(count ?? 0));
+  }, [instances, today]);
+
+  const totalToday = filtered.length + todayCompleted;
+  const pct = totalToday ? Math.round((todayCompleted / totalToday) * 100) : 0;
+  const overdueCount = groups.overdue.length;
+
+  async function handleStatusChange(instId, newStatus) {
+    if (newStatus === "completed") {
+      setCompletingId(instId);
+    } else {
+      setInstances(prev => prev.map(i => i.id === instId ? { ...i, status: newStatus } : i));
+      await supabase.from("task_instances").update({ status: newStatus }).eq("id", instId);
+    }
+    setStatusPickerId(null);
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }} onClick={() => { if (statusPickerId) setStatusPickerId(null); }}>
+
       {/* Progress card */}
       <div style={{ background: NAVY, borderRadius: 14, padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
           <span>
-            {completed.length} of {filtered.length} tasks done
+            {todayCompleted} of {totalToday} tasks completed today
             {overdueCount > 0 && <span style={{ color: "#FCA5A5", marginLeft: 8 }}>· {overdueCount} overdue</span>}
           </span>
           <span style={{ color: ACCENT, fontWeight: 700 }}>{pct}%</span>
@@ -276,7 +360,7 @@ function TaskView({ user }) {
       {/* Team tabs */}
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
         {TEAMS.map(t => (
-          <button key={t.slug} onClick={() => setActiveTeam(t.slug)} style={{
+          <button key={t.slug} onClick={() => { setActiveTeam(t.slug); setActivePerson("all"); }} style={{
             padding: "6px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap",
             background: activeTeam === t.slug ? ACCENT : CARD,
             color: activeTeam === t.slug ? "#fff" : MUTED,
@@ -286,11 +370,38 @@ function TaskView({ user }) {
         ))}
       </div>
 
-      {/* Actions */}
-      <div style={{ display: "flex", gap: 8 }}>
+      {/* People sub-tabs — only show when a specific team is selected */}
+      {activeTeam !== "all" && peopleInTeam.length > 0 && (
+        <div style={{ display: "flex", gap: 5, overflowX: "auto" }}>
+          <button onClick={() => setActivePerson("all")} style={{
+            padding: "4px 10px", fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: "pointer",
+            background: activePerson === "all" ? NAVY : "none",
+            color: activePerson === "all" ? "#fff" : MUTED,
+            border: `1px solid ${activePerson === "all" ? NAVY : BORDER}`,
+          }}>All</button>
+          {peopleInTeam.map(u => (
+            <button key={u.id} onClick={() => setActivePerson(u.id)} style={{
+              padding: "4px 10px", fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap",
+              background: activePerson === u.id ? NAVY : "none",
+              color: activePerson === u.id ? "#fff" : MUTED,
+              border: `1px solid ${activePerson === u.id ? NAVY : BORDER}`,
+            }}>{u.name.split(" ")[0]}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Actions row */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <button onClick={() => setShowAddForm(true)} style={{ flex: 1, background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "11px", borderRadius: 10, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
           + Add task
         </button>
+        <button onClick={() => setShowMyTasks(!showMyTasks)} style={{
+          ...ghostBtn,
+          background: showMyTasks ? "#EDE9FE" : "none",
+          color: showMyTasks ? "#5B21B6" : MUTED,
+          border: `1px solid ${showMyTasks ? "#C4B5FD" : BORDER}`,
+          fontWeight: showMyTasks ? 700 : 400,
+        }}>My tasks</button>
         <button onClick={() => setShowReport(true)} style={ghostBtn}>Report</button>
       </div>
 
@@ -298,55 +409,42 @@ function TaskView({ user }) {
         <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading tasks…</p>
       ) : (
         <>
-          {pending.length > 0 && (
-            <>
-              <p style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                Open · {pending.length}
-              </p>
-              <div style={card}>
-                {pending.map((inst, i) => (
-                  <TaskRow key={inst.id} instance={inst} task={tasks[inst.task_id]}
-                    teams={teams} users={users} isLast={i === pending.length - 1}
-                    today={today}
-                    onComplete={() => setCompletingId(inst.id)}
-                    onEdit={() => setEditingTask(tasks[inst.task_id])}
-                    onStatusChange={async status => {
-                      await supabase.from("task_instances").update({ status }).eq("id", inst.id);
-                      loadData();
-                    }} />
-                ))}
-              </div>
-            </>
-          )}
-
-          {completed.length > 0 && (
-            <>
-              <button onClick={() => setShowCompleted(!showCompleted)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "2px 0" }}>
-                <span style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Completed · {completed.length}</span>
-                <span style={{ fontSize: 11, color: MUTED }}>{showCompleted ? "Hide ↑" : "Show ↓"}</span>
-              </button>
-              {showCompleted && (
-                <div style={card}>
-                  {completed.map((inst, i) => (
-                    <CompletedRow key={inst.id} instance={inst} task={tasks[inst.task_id]}
-                      teams={teams} users={users} isLast={i === completed.length - 1}
-                      onUncomplete={async () => {
-                        await supabase.from("task_instances").update({ status: "not_started", completed_by: null, completed_at: null }).eq("id", inst.id);
-                        loadData();
-                      }} />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
           {filtered.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 0", color: MUTED }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}>☀️</div>
               <p style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>All clear!</p>
-              <p style={{ fontSize: 13, marginTop: 4 }}>No tasks here — add one above</p>
+              <p style={{ fontSize: 13, marginTop: 4 }}>No open tasks</p>
             </div>
           )}
+
+          {[
+            ["overdue",   "⚠️ Overdue",      "#DC2626", "#FEF2F2", "#FECACA"],
+            ["today",     "Due today",        TEXT,      null,      null],
+            ["week",      "Due this week",    TEXT,      null,      null],
+            ["month",     "Due this month",   TEXT,      null,      null],
+            ["later",     "Later",            TEXT,      null,      null],
+            ["noDueDate", "No due date",      TEXT,      null,      null],
+          ].map(([key, label, color, bg, borderColor]) => {
+            const groupItems = groups[key];
+            if (!groupItems.length) return null;
+            return (
+              <div key={key}>
+                <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color, marginBottom: 6 }}>
+                  {label} · {groupItems.length}
+                </p>
+                <div style={{ ...card, ...(bg ? { background: bg, borderColor } : {}) }}>
+                  {groupItems.map((inst, i) => (
+                    <TaskRow key={inst.id} instance={inst} task={tasks[inst.task_id]}
+                      teams={teams} users={users} isLast={i === groupItems.length - 1}
+                      today={today} isStatusPickerOpen={statusPickerId === inst.id}
+                      onCircleClick={e => { e.stopPropagation(); setStatusPickerId(statusPickerId === inst.id ? null : inst.id); }}
+                      onStatusChange={status => handleStatusChange(inst.id, status)}
+                      onEdit={() => setEditingTask(tasks[inst.task_id])} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </>
       )}
 
@@ -357,7 +455,7 @@ function TaskView({ user }) {
           users={Object.values(users)}
           onConfirm={async userId => {
             await supabase.from("task_instances").update({ status: "completed", completed_by: userId, completed_at: new Date().toISOString() }).eq("id", completingId);
-            setCompletingId(null); loadData();
+            setCompletingId(null); loadData(); onTaskComplete?.();
           }}
           onCancel={() => setCompletingId(null)} />
       )}
@@ -396,9 +494,272 @@ function TaskView({ user }) {
       )}
 
       {showReport && (
-        <ReportModal instances={instances} tasks={tasks} teams={teams} users={users} onClose={() => setShowReport(false)} />
+        <ReportModal tasks={tasks} teams={teams} users={users} onClose={() => setShowReport(false)} />
       )}
     </div>
+  );
+}
+
+// ── TASK ROW ───────────────────────────────────────────────
+function TaskRow({ instance, task, teams, users, isLast, today, isStatusPickerOpen, onCircleClick, onStatusChange, onEdit }) {
+  const [expanded, setExpanded]       = useState(false);
+  const [showNote, setShowNote]       = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [cycleHistory, setCycleHistory] = useState(null);
+  const [noteText, setNoteText]       = useState(instance.notes || "");
+  const [hovered, setHovered]         = useState(false);
+  if (!task) return null;
+
+  const team        = teams[task.team_id];
+  const assignedTo  = users[task.assigned_to];
+  const taskOverdue = task.end_date ? isOverdue(task.end_date) : false;
+  const hasDueDate  = !!task.end_date;
+  const dueDateOver = isOverdue(task.end_date);
+  const currentStatus = instance.status ?? "not_started";
+  const isRecurring = task.type === "recurring" && task.frequency;
+
+  async function saveNote() {
+    await supabase.from("task_instances").update({ notes: noteText }).eq("id", instance.id);
+  }
+
+  async function loadCycleHistory() {
+    if (cycleHistory) { setShowHistory(!showHistory); return; }
+    const pastDates = getPastCycleDates(task.frequency, 5);
+    const { data } = await supabase
+      .from("task_instances")
+      .select("due_date, status, completed_by")
+      .eq("task_id", task.id)
+      .in("due_date", pastDates);
+    const map = {};
+    data?.forEach(d => { map[d.due_date] = d; });
+    setCycleHistory(pastDates.map(date => ({ date, inst: map[date] ?? null })));
+    setShowHistory(true);
+  }
+
+  const cycleLabel = { daily: "day", weekly: "week", biweekly: "2 wks", monthly: "month" };
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ ...(isLast ? {} : rowBorder), ...(taskOverdue ? { background: "#FFFBEB" } : hovered ? { background: "#FAFAF8" } : {}) }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px" }}>
+
+        {/* Circle with status picker */}
+        <div style={{ position: "relative", flexShrink: 0, marginTop: 1 }}>
+          <button onClick={onCircleClick} style={{
+            width: 22, height: 22, borderRadius: "50%",
+            border: `2px solid ${taskOverdue ? "#FCA5A5" : currentStatus === "in_progress" ? ACCENT : BORDER}`,
+            background: currentStatus === "in_progress" ? "#FEF3C7" : "#fff",
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+          }}>
+            {currentStatus === "in_progress" && <div style={{ width: 8, height: 8, borderRadius: "50%", background: ACCENT }} />}
+          </button>
+
+          {isStatusPickerOpen && (
+            <div style={{
+              position: "absolute", top: 28, left: 0, background: CARD, border: `1px solid ${BORDER}`,
+              borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", zIndex: 50, minWidth: 150, overflow: "hidden",
+            }}>
+              {STATUS_OPTIONS.map(opt => (
+                <button key={opt.value} onClick={e => { e.stopPropagation(); onStatusChange(opt.value); }} style={{
+                  display: "flex", alignItems: "center", gap: 8, width: "100%",
+                  padding: "9px 12px", background: currentStatus === opt.value ? "#F9FAFB" : "none",
+                  border: "none", cursor: "pointer", fontSize: 13, color: TEXT,
+                  fontWeight: currentStatus === opt.value ? 600 : 400,
+                  borderBottom: opt.value !== "completed" ? `1px solid ${BORDER}` : "none",
+                }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_STYLES[opt.value]?.text ?? MUTED, flexShrink: 0 }} />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ color: TEXT, fontSize: 14, fontWeight: 600 }}>
+              {task.title}
+              {task.is_private && <span style={{ color: MUTED, fontSize: 11, marginLeft: 6 }}>🔒</span>}
+            </span>
+
+            {/* Right side */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+              {hasDueDate && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: dueDateOver ? "#DC2626" : MUTED, background: dueDateOver ? "#FEF2F2" : "#F3F4F6", padding: "2px 8px", borderRadius: 20 }}>
+                  Due {formatDate(task.end_date)}
+                </span>
+              )}
+              <StatusBadge status={currentStatus} />
+              <button onClick={onEdit} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "2px 8px", borderRadius: 5, cursor: "pointer", fontWeight: 500 }}>Edit</button>
+            </div>
+          </div>
+
+          {taskOverdue && (
+            <p style={{ fontSize: 11, color: "#DC2626", fontWeight: 600, marginTop: 2 }}>⚠️ Overdue since {formatDate(task.end_date)}</p>
+          )}
+
+          {task.description && <p style={{ color: MUTED, fontSize: 12, margin: "4px 0 0", lineHeight: 1.5 }}>{task.description}</p>}
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" }}>
+            {team && <TeamBadge teamSlug={team.slug} teamName={team.name} />}
+            {task.frequency && <span style={{ fontSize: 11, color: MUTED, background: "#F3F4F6", padding: "2px 8px", borderRadius: 20, fontWeight: 500 }}>{task.frequency}</span>}
+            {assignedTo && <span style={{ fontSize: 11, color: MUTED, fontWeight: 500 }}>👤 {assignedTo.name.split(" ")[0]}</span>}
+            {task.location && <span style={{ fontSize: 11, color: MUTED }}>📍 {task.location}</span>}
+          </div>
+
+          {/* Cycle history */}
+          {showHistory && cycleHistory && (
+            <div style={{ marginTop: 10, padding: "10px 12px", background: BG, borderRadius: 8, border: `1px solid ${BORDER}` }}>
+              <p style={{ fontSize: 11, color: MUTED, fontWeight: 600, marginBottom: 8 }}>Completion history</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                {cycleHistory.map(({ date, inst }) => {
+                  const done    = inst?.status === "completed";
+                  const missed  = inst && inst.status !== "completed";
+                  const noData  = !inst;
+                  return (
+                    <div key={date} style={{ textAlign: "center" }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                        background: done ? "#D1FAE5" : missed ? "#FEE2E2" : "#F3F4F6",
+                        border: `1.5px solid ${done ? "#6EE7B7" : missed ? "#FCA5A5" : BORDER}`,
+                        fontSize: 12,
+                      }}>
+                        {done ? "✓" : missed ? "✗" : "○"}
+                      </div>
+                      <p style={{ fontSize: 9, color: MUTED, marginTop: 3 }}>{cycleLabel[task.frequency] ?? ""}</p>
+                    </div>
+                  );
+                })}
+                {/* Current cycle */}
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "#FEF3C7", border: `1.5px solid ${ACCENT}`, fontSize: 12 }}>
+                    ○
+                  </div>
+                  <p style={{ fontSize: 9, color: ACCENT, marginTop: 3, fontWeight: 600 }}>now</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Expanded details */}
+          {expanded && (
+            <div style={{ marginTop: 10, padding: "10px 12px", background: BG, borderRadius: 8, border: `1px solid ${BORDER}`, display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                ["Date added", task.created_at ? formatDate(task.created_at.split("T")[0]) : null],
+                ["Start date", task.start_date ? formatDate(task.start_date) : null],
+                ["Due date",   task.end_date   ? formatDate(task.end_date)   : null],
+                ["Assigned",   assignedTo?.name],
+                ["Location",   task.location],
+              ].filter(([,v]) => v).map(([label, value]) => (
+                <div key={label} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                  <span style={{ color: MUTED, width: 80, flexShrink: 0, fontWeight: 500 }}>{label}</span>
+                  <span style={{ color: TEXT, fontWeight: 600 }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Action links */}
+          <div style={{ display: "flex", gap: 14, marginTop: 8, alignItems: "center" }}>
+            <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 10, display: "inline-block", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>›</span>
+              {expanded ? "Hide details" : "Details"}
+            </button>
+            <button onClick={() => setShowNote(!showNote)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500 }}>
+              {showNote ? "Hide note" : instance.notes ? "Edit note" : "+ Note"}
+            </button>
+            {isRecurring && (
+              <button onClick={loadCycleHistory} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500 }}>
+                {showHistory ? "Hide history" : "History"}
+              </button>
+            )}
+          </div>
+
+          {showNote && (
+            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} onBlur={saveNote}
+              placeholder="Add a note…" rows={2}
+              style={{ marginTop: 8, width: "100%", background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", color: TEXT, fontSize: 12, resize: "none", outline: "none" }} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── COMPLETED DRAWER ───────────────────────────────────────
+function CompletedDrawer({ instances, tasks, teams, users, allTime, onToggleAllTime, onClose, onUncomplete }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const grouped = {};
+  instances.forEach(inst => {
+    const dateKey = inst.completed_at ? inst.completed_at.split("T")[0] : "unknown";
+    if (!grouped[dateKey]) grouped[dateKey] = [];
+    grouped[dateKey].push(inst);
+  });
+
+  const width = expanded ? "100vw" : "min(420px, 92vw)";
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 30 }} />
+      <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width, background: CARD, boxShadow: "-4px 0 24px rgba(0,0,0,0.12)", zIndex: 40, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${BORDER}` }}>
+          <div>
+            <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, margin: 0 }}>✅ Completed</p>
+            <p style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>{instances.length} tasks</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setExpanded(!expanded)} style={ghostBtn}>{expanded ? "⤡" : "⤢"}</button>
+            <button onClick={onClose} style={{ ...ghostBtn, fontSize: 16 }}>×</button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {instances.length === 0 ? (
+            <p style={{ color: MUTED, textAlign: "center", padding: "40px 0", fontSize: 13 }}>No completed tasks yet</p>
+          ) : (
+            Object.entries(grouped).map(([date, dayInstances]) => (
+              <div key={date}>
+                <p style={{ fontSize: 11, color: MUTED, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>{formatDate(date)}</p>
+                <div style={card}>
+                  {dayInstances.map((inst, i) => {
+                    const task = tasks[inst.task_id];
+                    const team = task ? teams[task.team_id] : null;
+                    const completedBy = users[inst.completed_by];
+                    const time = inst.completed_at ? new Date(inst.completed_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+                    return (
+                      <div key={inst.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", ...(i < dayInstances.length - 1 ? rowBorder : {}) }}>
+                        <button onClick={() => onUncomplete(inst.id)} style={{ width: 20, height: 20, borderRadius: "50%", background: "#D1FAE5", border: "2px solid #6EE7B7", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <svg width="8" height="6" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="#065F46" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </button>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{task?.title ?? "—"}</p>
+                          {team && <div style={{ marginTop: 3 }}><TeamBadge teamSlug={team.slug} teamName={team.name} /></div>}
+                        </div>
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          {completedBy && <p style={{ color: TEXT, fontSize: 12, fontWeight: 600 }}>{completedBy.name.split(" ")[0]}</p>}
+                          {time && <p style={{ color: MUTED, fontSize: 11 }}>{time}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, textAlign: "center" }}>
+          <p style={{ color: MUTED, fontSize: 11, marginBottom: 6 }}>{allTime ? "Showing all completed tasks" : "Showing last 30 days"}</p>
+          <button onClick={onToggleAllTime} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontWeight: 500 }}>
+            {allTime ? "Show last 30 days" : "Show all time"}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -491,7 +852,7 @@ function HistoryView() {
 
       {!loading && filtered.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {[["Completed", done, "#065F46","#D1FAE5","#6EE7B7"],["Not done", pending,"#92400E","#FEF3C7","#FCD34D"]].map(([label,val,text,bg,border]) => (
+          {[["Completed",done,"#065F46","#D1FAE5","#6EE7B7"],["Not done",pending,"#92400E","#FEF3C7","#FCD34D"]].map(([label,val,text,bg,border]) => (
             <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: text, margin: 0 }}>{val}</p>
               <p style={{ fontSize: 12, color: text, opacity: 0.8, margin: "3px 0 0", fontWeight: 600 }}>{label}</p>
@@ -696,127 +1057,10 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
   );
 }
 
-// ── TASK ROW ───────────────────────────────────────────────
-function TaskRow({ instance, task, teams, users, isLast, today, onComplete, onEdit, onStatusChange }) {
-  const [expanded, setExpanded] = useState(false);
-  const [showNote, setShowNote] = useState(false);
-  const [noteText, setNoteText] = useState(instance.notes || "");
-  if (!task) return null;
-
-  const team        = teams[task.team_id];
-  const assignedTo  = users[task.assigned_to];
-  const taskOverdue = isOverdue(instance.due_date) && instance.due_date < today;
-  const daysAgo     = daysDue(instance.due_date);
-  const hasDueDate  = !!task.end_date;
-  const dueDateOver = isOverdue(task.end_date);
-
-  async function saveNote() {
-    await supabase.from("task_instances").update({ notes: noteText }).eq("id", instance.id);
-  }
-
-  return (
-    <div style={{ ...(isLast ? {} : rowBorder), ...(taskOverdue ? { background: "#FFFBEB" } : {}) }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px" }}>
-        <button onClick={onComplete} style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${taskOverdue ? "#FCA5A5" : BORDER}`, background: "#fff", cursor: "pointer", flexShrink: 0, marginTop: 1, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <span style={{ color: TEXT, fontSize: 14, fontWeight: 600 }}>{task.title}</span>
-              {task.is_private && <span style={{ color: MUTED, fontSize: 11, marginLeft: 6 }}>🔒</span>}
-            </div>
-            {/* Right side — due date + edit */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              {hasDueDate && (
-                <span style={{ fontSize: 11, fontWeight: 600, color: dueDateOver ? "#DC2626" : MUTED, background: dueDateOver ? "#FEF2F2" : "#F3F4F6", padding: "2px 8px", borderRadius: 20 }}>
-                  Due {formatDate(task.end_date)}
-                </span>
-              )}
-              <button onClick={onEdit} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "3px 8px", borderRadius: 5, cursor: "pointer", fontWeight: 500 }}>Edit</button>
-            </div>
-          </div>
-
-          {taskOverdue && daysAgo && (
-            <p style={{ fontSize: 11, color: "#DC2626", fontWeight: 600, marginTop: 2 }}>⚠️ Overdue — added {daysAgo}</p>
-          )}
-
-          {task.description && <p style={{ color: MUTED, fontSize: 12, margin: "4px 0 0", lineHeight: 1.5 }}>{task.description}</p>}
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" }}>
-            {team && <TeamBadge teamSlug={team.slug} teamName={team.name} />}
-            {task.status && task.status !== "not_started" && <StatusBadge status={task.status} />}
-            {task.frequency && <span style={{ fontSize: 11, color: MUTED, background: "#F3F4F6", padding: "2px 8px", borderRadius: 20, fontWeight: 500 }}>{task.frequency}</span>}
-            {assignedTo && <span style={{ fontSize: 11, color: MUTED, fontWeight: 500 }}>👤 {assignedTo.name.split(" ")[0]}</span>}
-            {task.location && <span style={{ fontSize: 11, color: MUTED }}>📍 {task.location}</span>}
-          </div>
-
-          {expanded && (
-            <div style={{ marginTop: 10, padding: "10px 12px", background: BG, borderRadius: 8, border: `1px solid ${BORDER}`, display: "flex", flexDirection: "column", gap: 6 }}>
-              {[
-                ["Date added", task.created_at ? formatDate(task.created_at.split("T")[0]) : null],
-                ["Start date", task.start_date ? formatDate(task.start_date) : null],
-                ["Due date",   task.end_date   ? formatDate(task.end_date)   : null],
-                ["Assigned",   assignedTo?.name],
-                ["Location",   task.location],
-              ].filter(([,v]) => v).map(([label, value]) => (
-                <div key={label} style={{ display: "flex", gap: 8, fontSize: 12 }}>
-                  <span style={{ color: MUTED, width: 80, flexShrink: 0, fontWeight: 500 }}>{label}</span>
-                  <span style={{ color: TEXT, fontWeight: 600 }}>{value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
-            <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500 }}>
-              {expanded ? "Hide details" : "Details"}
-            </button>
-            <button onClick={() => setShowNote(!showNote)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", padding: 0, fontWeight: 500 }}>
-              {showNote ? "Hide note" : instance.notes ? "Edit note" : "+ Note"}
-            </button>
-          </div>
-
-          {showNote && (
-            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} onBlur={saveNote}
-              placeholder="Add a note…" rows={2}
-              style={{ marginTop: 8, width: "100%", background: BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", color: TEXT, fontSize: 12, resize: "none", outline: "none" }} />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── COMPLETED ROW ──────────────────────────────────────────
-function CompletedRow({ instance, task, teams, users, isLast, onUncomplete }) {
-  if (!task) return null;
-  const team        = teams[task.team_id];
-  const completedBy = users[instance.completed_by];
-  const time        = instance.completed_at ? new Date(instance.completed_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", ...(isLast ? {} : rowBorder) }}>
-      <button onClick={onUncomplete} style={{ width: 22, height: 22, borderRadius: "50%", background: "#D1FAE5", border: "2px solid #6EE7B7", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <svg width="9" height="7" viewBox="0 0 10 8" fill="none">
-          <path d="M1 4l3 3 5-6" stroke="#065F46" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ color: MUTED, fontSize: 13, textDecoration: "line-through" }}>{task.title}</span>
-        {team && <span style={{ color: MUTED, fontSize: 11, marginLeft: 6, opacity: 0.6 }}>{team.name}</span>}
-      </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        {completedBy && <p style={{ color: TEXT, fontSize: 12, fontWeight: 600 }}>{completedBy.name.split(" ")[0]}</p>}
-        {time && <p style={{ color: MUTED, fontSize: 11 }}>{time}</p>}
-      </div>
-    </div>
-  );
-}
-
 // ── COMPLETE MODAL ─────────────────────────────────────────
 function CompleteModal({ task, users, onConfirm, onCancel }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 60, padding: 16 }} onClick={onCancel}>
       <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 420, border: `1px solid ${BORDER}`, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
         <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Who completed this?</p>
         {task && <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>{task.title}</p>}
@@ -830,7 +1074,7 @@ function CompleteModal({ task, users, onConfirm, onCancel }) {
             </button>
           ))}
         </div>
-        <button onClick={onCancel} style={{ width: "100%", marginTop: 12, padding: 11, background: "none", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>Cancel</button>
+        <button onClick={onCancel} style={{ width: "100%", marginTop: 12, padding: 11, background: "none", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
       </div>
     </div>
   );
@@ -850,7 +1094,7 @@ function TaskFormFields({ form, update, teams, users }) {
         <textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Any extra detail…" rows={2} style={{ ...inputStyle, resize: "none" }} />
       </div>
       {[
-        ["Status","status",STATUS_OPTIONS.map(o=>[o.value,o.label])],
+        ["Status","status",[["not_started","Not started"],["in_progress","In progress"],["blocked","Blocked"]]],
         ["Team","team_id",[["","No team"],...teams.map(t=>[t.id,t.name])]],
         ["Assign to","assigned_to",[["","Unassigned"],...users.map(u=>[u.id,u.name])]],
         ["Repeats","frequency",[["","One-off"],["daily","Daily"],["weekly","Weekly"],["biweekly","Bi-weekly"],["monthly","Monthly"]]],
@@ -929,63 +1173,152 @@ function TaskFormModal({ mode, task, teams, users, onSave, onDelete, onCancel })
 }
 
 // ── REPORT MODAL ───────────────────────────────────────────
-function ReportModal({ instances, tasks, teams, users, onClose }) {
-  const rows = instances.map(inst => {
-    const task = tasks[inst.task_id];
-    const team = task ? teams[task.team_id] : null;
-    return {
-      task: task?.title ?? "—", team: team?.name ?? "—", status: inst.status,
-      assigned_to: users[task?.assigned_to]?.name ?? "—",
-      completed_by: users[inst.completed_by]?.name ?? "—",
-      completed_at: inst.completed_at ? new Date(inst.completed_at).toLocaleString("en-GB") : "—",
-      frequency: task?.frequency ?? "one-off",
-      due_date: task?.end_date ? formatDate(task.end_date) : "—",
-      location: task?.location ?? "—",
-    };
+function ReportModal({ tasks, teams, users, onClose }) {
+  const [instances, setInstances] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const today = todayISO();
+
+  useEffect(() => {
+    async function load() {
+      const { data: openData } = await supabase.from("task_instances").select("*").neq("status", "completed").order("due_date", { ascending: true });
+      const cutoff = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0]; })();
+      const { data: completedData } = await supabase.from("task_instances").select("*").eq("status", "completed").gte("completed_at", cutoff).order("completed_at", { ascending: false });
+      const allInstances = [...(openData ?? []), ...(completedData ?? [])];
+      if (!allInstances.length) { setInstances([]); setLoading(false); return; }
+      const taskIds = [...new Set(allInstances.map(i => i.task_id))];
+      const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds);
+      const taskMap = {}; taskData?.forEach(t => { taskMap[t.id] = t; });
+      setInstances(allInstances.map(i => ({ ...i, _task: taskMap[i.task_id] })));
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const weekEnd  = (() => { const d = new Date(); d.setDate(d.getDate() + (7 - d.getDay())); return d.toISOString().split("T")[0]; })();
+  const monthEnd = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0]; })();
+
+  const completed   = instances.filter(i => i.status === "completed");
+  const inProgress  = instances.filter(i => i.status === "in_progress");
+  const overdue     = instances.filter(i => i.status !== "completed" && i._task?.end_date && i._task.end_date < today);
+  const dueToday    = instances.filter(i => i.status !== "completed" && i._task?.end_date === today);
+  const dueThisWeek = instances.filter(i => i.status !== "completed" && i._task?.end_date && i._task.end_date > today && i._task.end_date <= weekEnd);
+  const notStarted  = instances.filter(i => i.status === "not_started" && (!i._task?.end_date || i._task.end_date >= today));
+
+  const teamStats = {};
+  Object.values(teams).forEach(t => { teamStats[t.id] = { name: t.name, slug: t.slug, done: 0, total: 0 }; });
+  instances.forEach(inst => {
+    const teamId = inst._task?.team_id;
+    if (!teamId || !teamStats[teamId]) return;
+    teamStats[teamId].total++;
+    if (inst.status === "completed") teamStats[teamId].done++;
   });
 
   function exportCSV() {
-    const header = "Task,Team,Status,Assigned To,Completed By,Completed At,Frequency,Due Date,Location";
-    const blob = new Blob([[header,...rows.map(r=>`"${r.task}","${r.team}","${r.status}","${r.assigned_to}","${r.completed_by}","${r.completed_at}","${r.frequency}","${r.due_date}","${r.location}"`)].join("\n")],{type:"text/csv"});
+    const header = "Task,Team,Status,Assigned To,Completed By,Completed At,Due Date";
+    const rows = instances.map(inst => {
+      const task = inst._task;
+      const team = task ? teams[task.team_id] : null;
+      return `"${task?.title ?? "—"}","${team?.name ?? "—"}","${inst.status}","${users[task?.assigned_to]?.name ?? "—"}","${users[inst.completed_by]?.name ?? "—"}","${inst.completed_at ? new Date(inst.completed_at).toLocaleString("en-GB") : "—"}","${task?.end_date ? formatDate(task.end_date) : "—"}"`;
+    });
+    const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = `samesun-tasks-${new Date().toISOString().split("T")[0]}.csv`; a.click();
+    a.download = `samesun-report-${today}.csv`; a.click();
   }
 
-  const done = rows.filter(r => r.status === "completed").length;
-  const pending = rows.filter(r => r.status !== "completed").length;
+  const Section = ({ title, color, items }) => items.length > 0 ? (
+    <div style={{ marginBottom: 16 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color, marginBottom: 8 }}>{title} · {items.length}</p>
+      <div style={card}>
+        {items.map((inst, i) => {
+          const task = inst._task;
+          const team = task ? teams[task.team_id] : null;
+          const assignedTo = users[task?.assigned_to];
+          const completedBy = users[inst.completed_by];
+          return (
+            <div key={inst.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", ...(i < items.length - 1 ? rowBorder : {}) }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{task?.title ?? "—"}</p>
+                <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
+                  {team && <TeamBadge teamSlug={team.slug} teamName={team.name} />}
+                  {assignedTo && <span style={{ fontSize: 11, color: MUTED }}>👤 {assignedTo.name.split(" ")[0]}</span>}
+                  {task?.end_date && <span style={{ fontSize: 11, color: task.end_date < today ? "#DC2626" : MUTED, fontWeight: task.end_date < today ? 600 : 400 }}>Due {formatDate(task.end_date)}</span>}
+                </div>
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                {completedBy && <p style={{ color: TEXT, fontSize: 12, fontWeight: 600 }}>{completedBy.name.split(" ")[0]}</p>}
+                {inst.completed_at && <p style={{ color: MUTED, fontSize: 11 }}>{new Date(inst.completed_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onClose}>
-      <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 520, border: `1px solid ${BORDER}`, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>Report</p>
+      <div style={{ background: BG, borderRadius: 16, width: "100%", maxWidth: 580, border: `1px solid ${BORDER}`, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${BORDER}`, background: CARD, borderRadius: "16px 16px 0 0" }}>
+          <div>
+            <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, margin: 0 }}>Task Report</p>
+            <p style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+          </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: MUTED, fontSize: 20, cursor: "pointer" }}>×</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-          {[["Completed",done,"#065F46","#D1FAE5","#6EE7B7"],["Still to do",pending,"#92400E","#FEF3C7","#FCD34D"]].map(([label,val,text,bg,border]) => (
-            <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
-              <p style={{ fontSize: 30, fontWeight: 800, color: text, margin: 0 }}>{val}</p>
-              <p style={{ fontSize: 12, color: text, margin: "3px 0 0", fontWeight: 600 }}>{label}</p>
+
+        {loading ? <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p> : (
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
+              {[
+                ["Completed", completed.length, "#065F46", "#D1FAE5", "#6EE7B7"],
+                ["In progress", inProgress.length, "#92400E", "#FEF3C7", "#FCD34D"],
+                ["Overdue", overdue.length, "#991B1B", "#FEE2E2", "#FCA5A5"],
+                ["Not started", notStarted.length, "#1E40AF", "#DBEAFE", "#93C5FD"],
+              ].map(([label, val, text, bg, border]) => (
+                <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 10px", textAlign: "center" }}>
+                  <p style={{ fontSize: 24, fontWeight: 800, color: text, margin: 0 }}>{val}</p>
+                  <p style={{ fontSize: 10, color: text, margin: "2px 0 0", fontWeight: 600, opacity: 0.8 }}>{label}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
-          {rows.map((r, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: BG, borderRadius: 8, border: `1px solid ${BORDER}` }}>
-              <div>
-                <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{r.task}</p>
-                <p style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>{r.team} · {r.frequency}{r.assigned_to !== "—" ? ` · 👤 ${r.assigned_to}` : ""}</p>
+
+            {Object.values(teamStats).some(t => t.total > 0) && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED, marginBottom: 10 }}>By team</p>
+                <div style={{ ...card, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.values(teamStats).filter(t => t.total > 0).map(t => {
+                    const pct = Math.round((t.done / t.total) * 100);
+                    const c = TEAM_COLORS[t.slug] ?? { bg: "#F3F4F6", text: "#6B7280" };
+                    return (
+                      <div key={t.name}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                          <span style={{ fontWeight: 600, color: TEXT }}>{t.name}</span>
+                          <span style={{ color: MUTED }}>{t.done}/{t.total} · <span style={{ fontWeight: 600, color: c.text }}>{pct}%</span></span>
+                        </div>
+                        <div style={{ height: 6, background: c.bg, borderRadius: 3 }}>
+                          <div style={{ height: 6, background: c.text, borderRadius: 3, width: `${pct}%`, transition: "width 0.4s" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <StatusBadge status={r.status} />
-                {r.completed_by !== "—" && <p style={{ color: MUTED, fontSize: 11, marginTop: 3 }}>{r.completed_by}</p>}
-              </div>
-            </div>
-          ))}
+            )}
+
+            <Section title="⚠️ Overdue"              color="#DC2626" items={overdue} />
+            <Section title="Due today"                color="#92400E" items={dueToday} />
+            <Section title="Due this week"            color={TEXT}    items={dueThisWeek} />
+            <Section title="In progress"              color="#92400E" items={inProgress.filter(i => !overdue.includes(i))} />
+            <Section title="Completed (last 30 days)" color="#065F46" items={completed} />
+            <Section title="Not started"              color={MUTED}   items={notStarted} />
+          </div>
+        )}
+
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, background: CARD, borderRadius: "0 0 16px 16px" }}>
+          <button onClick={exportCSV} style={{ width: "100%", padding: 11, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>
+            Export CSV
+          </button>
         </div>
-        <button onClick={exportCSV} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-          Export CSV
-        </button>
       </div>
     </div>
   );
