@@ -103,10 +103,28 @@ const labelStyle = { display: "block", fontSize: 12, color: MUTED, marginBottom:
 const rowBorder  = { borderBottom: `1px solid ${BORDER}` };
 const ghostBtn   = { background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer" };
 
+async function fetchProfile(email) {
+  const { data } = await supabase.from("users").select("id,name,email,role,team_id")
+    .eq("email", email.toLowerCase().trim()).single();
+  return data ?? null;
+}
+
 export default function App() {
-  const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("task_user")); } catch { return null; } });
-  function handleLogin(u) { localStorage.setItem("task_user", JSON.stringify(u)); setUser(u); }
-  function handleLogout() { localStorage.removeItem("task_user"); setUser(null); }
+  const [user, setUser] = useState(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser?.email) setUser(await fetchProfile(authUser.email));
+      setCheckingSession(false);
+    })();
+  }, []);
+
+  function handleLogin(u) { setUser(u); }
+  async function handleLogout() { await supabase.auth.signOut(); setUser(null); }
+
+  if (checkingSession) return null;
   if (!user) return <LoginScreen onLogin={handleLogin} />;
   return <Main user={user} onLogout={handleLogout} />;
 }
@@ -120,11 +138,18 @@ function LoginScreen({ onLogin }) {
 
   async function handleSubmit(e) {
     e.preventDefault(); setLoading(true); setError("");
-    const { data } = await supabase.from("users").select("id,name,email,role,team_id")
-      .eq("email", email.toLowerCase().trim()).eq("password", password).single();
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email: email.toLowerCase().trim(), password,
+    });
+    if (authError || !data.user) {
+      setLoading(false);
+      setError("Wrong email or password.");
+      return;
+    }
+    const profile = await fetchProfile(data.user.email);
     setLoading(false);
-    if (!data) { setError("Wrong email or password."); return; }
-    onLogin(data);
+    if (!profile) { setError("Signed in, but no matching profile was found. Contact an admin."); return; }
+    onLogin(profile);
   }
 
   return (
@@ -151,7 +176,6 @@ function LoginScreen({ onLogin }) {
             </button>
           </form>
         </div>
-        <p style={{ textAlign: "center", color: MUTED, fontSize: 11, marginTop: 16 }}>admin@company.com · admin123</p>
       </div>
     </div>
   );
