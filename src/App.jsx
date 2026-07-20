@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_URL = "https://harbaqvqxwgkifkbejwy.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhcmJhcXZxeHdna2lma2Jland5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NDgwMzYsImV4cCI6MjA5NjUyNDAzNn0.Jdk8rVPVfHcegQuRpFqwZWbdY-bmnhIH2qirvSRqreU";
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { supabase } from "./lib/supabaseClient";
+import Sidebar from "./components/Sidebar";
+import Topbar from "./components/Topbar";
+import TasksPage from "./components/TasksPage";
 
 const TEAMS = [
   { slug: "all",       name: "All" },
@@ -37,6 +35,8 @@ const STATUS_STYLES = {
   blocked:     { bg: "#FEE2E2", text: "#991B1B" },
   completed:   { bg: "#D1FAE5", text: "#065F46" },
 };
+
+const TAB_LABELS = { tasks: "Tasks", history: "History", people: "People" };
 
 function todayISO() { return new Date().toISOString().split("T")[0]; }
 
@@ -211,56 +211,18 @@ function Main({ user, onLogout }) {
   useEffect(() => { if (showCompleted) loadCompleted(completedAll); }, [showCompleted, completedAll, loadCompleted]);
 
   return (
-    <div style={{ minHeight: "100vh", background: BG }}>
-      <div style={{ background: NAVY, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-        <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <SunLogo />
-              <div>
-                <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>Samesun Tasks</div>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                  {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{user.name}</span>
-              <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: 12, padding: "5px 12px", borderRadius: 7, cursor: "pointer" }}>Sign out</button>
-            </div>
-          </div>
-          <div style={{ display: "flex" }}>
-            {[["tasks","Tasks"],["history","History"],["people","People"]].map(([key, label]) => (
-              <button key={key} onClick={() => setTab(key)} style={{
-                background: "none", border: "none", cursor: "pointer", padding: "10px 16px",
-                fontSize: 13, fontWeight: 600,
-                color: tab === key ? ACCENT : "rgba(255,255,255,0.45)",
-                borderBottom: tab === key ? `2px solid ${ACCENT}` : "2px solid transparent",
-              }}>{label}</button>
-            ))}
-          </div>
+    <div style={{ minHeight: "100vh", background: BG, display: "flex" }}>
+      <Sidebar activePage={tab} onNavigate={setTab} onOpenCompleted={() => setShowCompleted(true)} />
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Topbar pageTitle={TAB_LABELS[tab]} userEmail={user.email} onSignOut={onLogout} />
+
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 20px 80px" }}>
+          {tab === "tasks"   && <TasksPage user={user} />}
+          {tab === "history" && <HistoryView />}
+          {tab === "people"  && <PeopleView />}
         </div>
       </div>
-
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 20px 80px" }}>
-        {tab === "tasks"   && <TaskView user={user} allUsers={users} allTeams={teams} onTaskComplete={() => { if (showCompleted) loadCompleted(completedAll); }} />}
-        {tab === "history" && <HistoryView />}
-        {tab === "people"  && <PeopleView />}
-      </div>
-
-      {/* Completed button */}
-      <button onClick={() => setShowCompleted(true)} style={{
-        position: "fixed", right: 20, bottom: 24,
-        background: NAVY, color: "#fff", border: "none", borderRadius: 12,
-        padding: "11px 18px", cursor: "pointer", zIndex: 20,
-        fontSize: 13, fontWeight: 600, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-        display: "flex", alignItems: "center", gap: 8,
-      }}>
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-          <path d="M2 8l4 4 8-8" stroke="#F5A623" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        Completed
-      </button>
 
       {showCompleted && (
         <CompletedDrawer
