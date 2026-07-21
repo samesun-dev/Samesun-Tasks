@@ -19,7 +19,7 @@ const TEAM_COLORS = {
   sales:     { bg: "#DBEAFE", text: "#1E40AF" },
   marketing: { bg: "#FCE7F3", text: "#9D174D" },
   growth:    { bg: "#D1FAE5", text: "#065F46" },
-  finance:   { bg: "#EDE9FE", text: "#5B21B6" },
+  finance:   { bg: "#EDE9FE", text: "#5B21B6" },1
   ops:       { bg: "#FEE2E2", text: "#991B1B" },
 };
 
