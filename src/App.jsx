@@ -3,6 +3,7 @@ import { supabase } from "./lib/supabaseClient";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import TasksPage from "./components/TasksPage";
+import ReportsPage from "./components/ReportsPage";
 
 const TEAMS = [
   { slug: "all",       name: "All" },
@@ -36,7 +37,7 @@ const STATUS_STYLES = {
   completed:   { bg: "#D1FAE5", text: "#065F46" },
 };
 
-const TAB_LABELS = { tasks: "Tasks", history: "History", people: "People" };
+const TAB_LABELS = { tasks: "Tasks", history: "History", people: "People", reports: "Reports" };
 
 function todayISO() { return new Date().toISOString().split("T")[0]; }
 
@@ -221,6 +222,7 @@ function Main({ user, onLogout }) {
           {tab === "tasks"   && <TasksPage user={user} />}
           {tab === "history" && <HistoryView />}
           {tab === "people"  && <PeopleView />}
+          {tab === "reports" && <ReportsPage />}
         </div>
       </div>
 
