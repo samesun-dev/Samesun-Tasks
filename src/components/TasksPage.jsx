@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { CITY_OPTIONS } from '../lib/constants'
 import TaskGroup from './TaskGroup'
 import FilterBar from './FilterBar'
 import TaskFormModal from './TaskFormModal'
@@ -11,11 +12,6 @@ const STATUS_LABELS = {
   blocked: 'Blocked',
   completed: 'Completed',
 }
-
-const CITY_OPTIONS = [
-  'Toronto', 'Montreal', 'Vancouver', 'Guesthouse Van', 'Banff',
-  'Ocean Beach', 'Hollywood', 'San Francisco', 'Venice Beach',
-]
 
 function todayISO() {
   return new Date().toISOString().split('T')[0]

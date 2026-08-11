@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CITY_OPTIONS } from '../lib/constants'
 
 const inputClass = 'w-full px-3 py-2 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] text-sm text-[#1e293b] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/25 focus:border-[#3b82f6] transition-all'
 const labelClass = 'block text-xs font-medium text-[#94a3b8] mb-1.5'
@@ -6,7 +7,7 @@ const labelClass = 'block text-xs font-medium text-[#94a3b8] mb-1.5'
 const STATUS_OPTIONS = [
   ['not_started', 'Not started'],
   ['in_progress', 'In progress'],
-  ['completed', 'Completed'],
+  ['completed', 'Completed'], 
 ]
 
 const FREQUENCY_OPTIONS = [
@@ -15,6 +16,9 @@ const FREQUENCY_OPTIONS = [
   ['weekly', 'Weekly'],
   ['biweekly', 'Bi-weekly'],
   ['monthly', 'Monthly'],
+  ['every_2_months', 'Every 2 months'],
+  ['every_3_months', 'Every 3 months'],
+  ['annually', 'Annually'],
 ]
 
 export default function TaskFormModal({ mode, task, teams, users, onSave, onDelete, onCancel }) {
@@ -118,10 +122,10 @@ export default function TaskFormModal({ mode, task, teams, users, onSave, onDele
 
           <div>
             <label className={labelClass}>Location</label>
-            <input
-              type="text" value={form.location} onChange={e => update('location', e.target.value)}
-              placeholder="e.g. Vancouver office, Remote" className={inputClass}
-            />
+            <select value={form.location} onChange={e => update('location', e.target.value)} className={inputClass}>
+              <option value="">No location</option>
+              {CITY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
 
           <div className="flex gap-3">

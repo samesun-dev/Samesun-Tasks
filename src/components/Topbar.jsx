@@ -1,9 +1,20 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Search, ChevronDown, LogOut } from 'lucide-react'
 
 export default function Topbar({ pageTitle, userEmail, onSignOut }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
   const initials = userEmail?.[0]?.toUpperCase() ?? '?'
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleOutside(e) {
+      if (menuRef.current?.contains(e.target)) return
+      setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [menuOpen])
 
   return (
     <header className="h-14 border-b border-[#e2e8f0] bg-white flex items-center justify-between px-6 sticky top-0 z-10">
@@ -28,7 +39,7 @@ export default function Topbar({ pageTitle, userEmail, onSignOut }) {
           />
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-[#f8fafc] transition-colors"

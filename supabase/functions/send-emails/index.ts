@@ -10,7 +10,7 @@ console.log("RESEND_API_KEY present:", RESEND_API_KEY.length > 0);
 console.log("SUPABASE_URL present:", !!Deno.env.get("SUPABASE_URL"));
 
 const APP_URL = "https://samesun-tasks.vercel.app";
-const FROM = "Samesun Tasks <onboarding@resend.dev>";
+const FROM = "Samesun Tasks <tasks@tasks.samesun.com>";
 
 async function sendEmail(to: string, subject: string, html: string) {
   console.log("Sending email to:", to, "subject:", subject);

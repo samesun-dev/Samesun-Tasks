@@ -57,6 +57,12 @@ Deno.serve(async () => {
       shouldCreate = dayOfWeek === 1 && weekNum % 2 === 0;
     } else if (task.frequency === "monthly") {
       shouldCreate = dayOfMonth === 1;
+    } else if (task.frequency === "every_2_months") {
+      shouldCreate = dayOfMonth === 1 && today.getMonth() % 2 === 0;
+    } else if (task.frequency === "every_3_months") {
+      shouldCreate = dayOfMonth === 1 && today.getMonth() % 3 === 0;
+    } else if (task.frequency === "annually") {
+      shouldCreate = dayOfMonth === 1 && today.getMonth() === 0;
     }
 
     if (shouldCreate) {
