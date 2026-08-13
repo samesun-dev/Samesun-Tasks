@@ -914,13 +914,15 @@ function PeopleView() {
   useEffect(() => { loadPeople(); }, [loadPeople]);
 
   async function handleAddUser(form) {
-    const { data } = await supabase.from("users").insert({ name: form.name, email: form.email, password: form.password, team_id: form.team_id || null, role: "member" }).select().single();
-    if (data) setNewCredentials({ name: form.name, email: form.email, password: form.password });
+    const email = form.email.toLowerCase().trim();
+    const { data } = await supabase.from("users").insert({ name: form.name, email, password: form.password, team_id: form.team_id || null, role: "member" }).select().single();
+    if (data) setNewCredentials({ name: form.name, email, password: form.password });
     setShowAdd(false); loadPeople();
   }
 
   async function handleEditUser(form) {
-    await supabase.from("users").update({ name: form.name, email: form.email, team_id: form.team_id || null, role: form.role, ...(form.password ? { password: form.password } : {}) }).eq("id", editingUser.id);
+    const email = form.email.toLowerCase().trim();
+    await supabase.from("users").update({ name: form.name, email, team_id: form.team_id || null, role: form.role, ...(form.password ? { password: form.password } : {}) }).eq("id", editingUser.id);
     setEditingUser(null); loadPeople();
   }
 
