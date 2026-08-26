@@ -1012,6 +1012,8 @@ function PeopleView() {
   const [editingUser, setEditingUser]       = useState(null);
   const [invited, setInvited]               = useState(null);
   const [inviteError, setInviteError]       = useState("");
+  const [sendingId, setSendingId]           = useState(null);
+  const [sendError, setSendError]           = useState("");
 
   const loadPeople = useCallback(async () => {
     setLoading(true);
@@ -1052,6 +1054,31 @@ function PeopleView() {
     setEditingUser(null); loadPeople();
   }
 
+  async function handleSendAccess(u) {
+    setSendError(""); setSendingId(u.id);
+    if (u.has_account) {
+      const { error } = await supabase.auth.resetPasswordForEmail(u.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      setSendingId(null);
+      if (error) { setSendError(error.message); return; }
+      setInvited(u.email);
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke("create-user", {
+      body: {
+        name: u.name,
+        email: u.email,
+        team_id: u.team_id || null,
+        role: u.role || "member",
+        redirectTo: `${window.location.origin}/reset-password`,
+      },
+    });
+    setSendingId(null);
+    if (error || data?.error) { setSendError(data?.error || error.message); return; }
+    setInvited(u.email);
+  }
+
   const initials = name => name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
@@ -1060,6 +1087,8 @@ function PeopleView() {
         <p style={{ color: MUTED, fontSize: 13, fontWeight: 500 }}>{users.length} people</p>
         <button onClick={() => setShowAdd(true)} style={{ background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "8px 16px", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>+ Add person</button>
       </div>
+
+      {sendError && <p style={{ color: "#DC2626", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8 }}>{sendError}</p>}
 
       {loading ? <p style={{ color: MUTED, textAlign: "center", padding: 40, fontSize: 13 }}>Loading…</p> : (
         <div style={card}>
@@ -1077,6 +1106,16 @@ function PeopleView() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   {team && <TeamBadge teamSlug={team.slug} teamName={team.name} />}
                   {u.role === "admin" && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "#FEF3C7", color: "#92400E", fontWeight: 600 }}>Admin</span>}
+                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: u.has_account ? "#D1FAE5" : "#F3F4F6", color: u.has_account ? "#065F46" : "#6B7280", fontWeight: 600 }}>
+                    {u.has_account ? "Active" : "No account yet"}
+                  </span>
+                  <button
+                    onClick={() => handleSendAccess(u)}
+                    disabled={sendingId === u.id}
+                    style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", opacity: sendingId === u.id ? 0.6 : 1 }}
+                  >
+                    {sendingId === u.id ? "Sending…" : u.has_account ? "Send reset" : "Send invite"}
+                  </button>
                   <button onClick={() => setEditingUser(u)} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>Edit</button>
                 </div>
               </div>
