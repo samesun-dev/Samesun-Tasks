@@ -125,6 +125,7 @@ export default function App() {
   function handleLogin(u) { setUser(u); }
   async function handleLogout() { await supabase.auth.signOut(); setUser(null); }
 
+  if (window.location.pathname === "/reset-password") return <ResetPasswordScreen />;
   if (checkingSession) return null;
   if (!user) return <LoginScreen onLogin={handleLogin} />;
   return <Main user={user} onLogout={handleLogout} />;
@@ -136,6 +137,7 @@ function LoginScreen({ onLogin }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault(); setLoading(true); setError("");
@@ -152,6 +154,8 @@ function LoginScreen({ onLogin }) {
     if (!profile) { setError("Signed in, but no matching profile was found. Contact an admin."); return; }
     onLogin(profile);
   }
+
+  if (showForgot) return <ForgotPasswordScreen onBack={() => setShowForgot(false)} />;
 
   return (
     <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -175,7 +179,115 @@ function LoginScreen({ onLogin }) {
             <button type="submit" disabled={loading} style={{ background: ACCENT, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: loading ? 0.7 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
               {loading ? "Signing in…" : "Sign in →"}
             </button>
+            <button type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", textAlign: "center" }}>
+              Forgot password?
+            </button>
           </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FORGOT PASSWORD ────────────────────────────────────────
+function ForgotPasswordScreen({ onBack }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setLoading(true); setError("");
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.toLowerCase().trim(),
+      { redirectTo: `${window.location.origin}/reset-password` }
+    );
+    setLoading(false);
+    if (resetError) { setError(resetError.message); return; }
+    setSent(true);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ display: "inline-flex", marginBottom: 16 }}><SunLogo /></div>
+          <h1 style={{ color: TEXT, fontSize: 24, fontWeight: 700, margin: 0 }}>Reset your password</h1>
+          <p style={{ color: MUTED, fontSize: 14, marginTop: 6 }}>We'll email you a link to set a new one</p>
+        </div>
+        <div style={{ background: CARD, borderRadius: 16, padding: 28, border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+          {sent ? (
+            <p style={{ color: TEXT, fontSize: 13, textAlign: "center" }}>Check {email} for a reset link.</p>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@samesun.com" required autoFocus style={inputStyle} />
+              </div>
+              {error && <p style={{ color: "#991B1B", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8, border: "1px solid #FECACA" }}>{error}</p>}
+              <button type="submit" disabled={loading} style={{ background: ACCENT, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: loading ? 0.7 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
+                {loading ? "Sending…" : "Send reset link →"}
+              </button>
+            </form>
+          )}
+          <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", textAlign: "center", width: "100%", marginTop: 16 }}>
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RESET PASSWORD ─────────────────────────────────────────
+function ResetPasswordScreen() {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setError("");
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirmPassword) { setError("Passwords do not match."); return; }
+    setLoading(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (updateError) { setError(updateError.message); return; }
+    setDone(true);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ display: "inline-flex", marginBottom: 16 }}><SunLogo /></div>
+          <h1 style={{ color: TEXT, fontSize: 24, fontWeight: 700, margin: 0 }}>Set your password</h1>
+          <p style={{ color: MUTED, fontSize: 14, marginTop: 6 }}>Welcome to Samesun Tasks</p>
+        </div>
+        <div style={{ background: CARD, borderRadius: 16, padding: 28, border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+          {done ? (
+            <div style={{ textAlign: "center" }}>
+              <p style={{ color: TEXT, fontSize: 13, marginBottom: 16 }}>Password set. You're all set to sign in.</p>
+              <a href="/" style={{ color: ACCENT, fontSize: 13, fontWeight: 700, textDecoration: "none" }}>Go to sign in →</a>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={labelStyle}>New password</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" required minLength={8} autoFocus style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Confirm password</label>
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Re-enter password" required minLength={8} style={inputStyle} />
+              </div>
+              {error && <p style={{ color: "#991B1B", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8, border: "1px solid #FECACA" }}>{error}</p>}
+              <button type="submit" disabled={loading} style={{ background: ACCENT, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: loading ? 0.7 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
+                {loading ? "Saving…" : "Set password →"}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
@@ -898,7 +1010,8 @@ function PeopleView() {
   const [loading, setLoading]               = useState(true);
   const [showAdd, setShowAdd]               = useState(false);
   const [editingUser, setEditingUser]       = useState(null);
-  const [newCredentials, setNewCredentials] = useState(null);
+  const [invited, setInvited]               = useState(null);
+  const [inviteError, setInviteError]       = useState("");
 
   const loadPeople = useCallback(async () => {
     setLoading(true);
@@ -915,14 +1028,27 @@ function PeopleView() {
 
   async function handleAddUser(form) {
     const email = form.email.toLowerCase().trim();
-    const { data } = await supabase.from("users").insert({ name: form.name, email, password: form.password, team_id: form.team_id || null, role: "member" }).select().single();
-    if (data) setNewCredentials({ name: form.name, email, password: form.password });
+    setInviteError("");
+    const { data, error } = await supabase.functions.invoke("create-user", {
+      body: {
+        name: form.name,
+        email,
+        team_id: form.team_id || null,
+        role: "member",
+        redirectTo: `${window.location.origin}/reset-password`,
+      },
+    });
+    if (error || data?.error) {
+      setInviteError(data?.error || error.message);
+      return;
+    }
+    setInvited(email);
     setShowAdd(false); loadPeople();
   }
 
   async function handleEditUser(form) {
     const email = form.email.toLowerCase().trim();
-    await supabase.from("users").update({ name: form.name, email, team_id: form.team_id || null, role: form.role, ...(form.password ? { password: form.password } : {}) }).eq("id", editingUser.id);
+    await supabase.from("users").update({ name: form.name, email, team_id: form.team_id || null, role: form.role }).eq("id", editingUser.id);
     setEditingUser(null); loadPeople();
   }
 
@@ -959,40 +1085,31 @@ function PeopleView() {
         </div>
       )}
 
-      {newCredentials && (
-        <div onClick={() => setNewCredentials(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
+      {invited && (
+        <div onClick={() => setInvited(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: CARD, borderRadius: 16, padding: 24, width: "100%", maxWidth: 380, border: `1px solid ${BORDER}`, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
-            <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, marginBottom: 4 }}>✅ Person added!</p>
-            <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>Share these login details with {newCredentials.name}:</p>
-            <div style={{ background: BG, borderRadius: 10, padding: "14px 16px", marginBottom: 16, border: `1px solid ${BORDER}` }}>
-              {[["URL","samesun-tasks.vercel.app"],["Email",newCredentials.email],["Password",newCredentials.password]].map(([lbl,val]) => (
-                <div key={lbl} style={{ marginBottom: 10 }}>
-                  <p style={{ color: MUTED, fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{lbl}</p>
-                  <p style={{ color: lbl === "URL" ? ACCENT : TEXT, fontSize: 13, fontWeight: 700 }}>{val}</p>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setNewCredentials(null)} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Done</button>
+            <p style={{ color: TEXT, fontWeight: 700, fontSize: 16, marginBottom: 4 }}>✅ Invite sent!</p>
+            <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>{invited} will get an email with a link to set their own password.</p>
+            <button onClick={() => setInvited(null)} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Done</button>
           </div>
         </div>
       )}
 
-      {showAdd && <UserFormModal mode="add" teams={Object.values(teams)} onSave={handleAddUser} onCancel={() => setShowAdd(false)} />}
+      {showAdd && <UserFormModal mode="add" teams={Object.values(teams)} onSave={handleAddUser} onCancel={() => setShowAdd(false)} error={inviteError} />}
       {editingUser && <UserFormModal mode="edit" user={editingUser} teams={Object.values(teams)} onSave={handleEditUser} onDelete={async () => { await supabase.from("users").delete().eq("id", editingUser.id); setEditingUser(null); loadPeople(); }} onCancel={() => setEditingUser(null)} />}
     </div>
   );
 }
 
 // ── USER FORM MODAL ────────────────────────────────────────
-function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
-  const [form, setForm] = useState({ name: user?.name ?? "", email: user?.email ?? "", password: "", team_id: user?.team_id ?? "", role: user?.role ?? "member" });
+function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel, error }) {
+  const [form, setForm] = useState({ name: user?.name ?? "", email: user?.email ?? "", team_id: user?.team_id ?? "", role: user?.role ?? "member" });
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const update = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   async function handleSave() {
     if (!form.name.trim() || !form.email.trim()) return;
-    if (mode === "add" && !form.password.trim()) return;
     setSaving(true); await onSave(form); setSaving(false);
   }
 
@@ -1017,10 +1134,10 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel }) {
               <input type={type} value={form[key]} onChange={e => update(key, e.target.value)} placeholder={ph} style={inputStyle} />
             </div>
           ))}
-          <div>
-            <label style={labelStyle}>{mode === "add" ? "Password" : "New password (leave blank to keep)"}</label>
-            <input type="password" value={form.password} onChange={e => update("password", e.target.value)} placeholder={mode === "add" ? "Set a password" : "Leave blank to keep"} style={inputStyle} />
-          </div>
+          {mode === "add" && (
+            <p style={{ color: MUTED, fontSize: 12, margin: 0 }}>They'll get an email invite to set their own password.</p>
+          )}
+          {error && <p style={{ color: "#DC2626", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8 }}>{error}</p>}
           <div>
             <label style={labelStyle}>Team</label>
             <select value={form.team_id} onChange={e => update("team_id", e.target.value)} style={{ ...inputStyle, appearance: "none" }}>
