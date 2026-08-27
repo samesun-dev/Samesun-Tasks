@@ -51,8 +51,10 @@ Deno.serve(async (req) => {
     });
   }
 
+  const normalizedEmail = email.toLowerCase().trim();
+
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-    email.toLowerCase().trim(),
+    normalizedEmail,
     {
       data: { name: name.trim(), role: role || "member", team_id: team_id || "" },
       ...(redirectTo ? { redirectTo } : {}),
@@ -60,6 +62,52 @@ Deno.serve(async (req) => {
   );
 
   if (error) {
+    // A real Auth account already exists for this email (usually from
+    // before the People-sync trigger existed, so it never got a matching
+    // public.users row). Instead of failing, back-fill the row and send
+    // them a password reset — same end result as a fresh invite.
+    if (error.message?.toLowerCase().includes("already been registered")) {
+      const { data: existing } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+
+      if (!existing) {
+        const { data: list, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        const authUser = listError ? null : list.users.find((u) => u.email?.toLowerCase() === normalizedEmail);
+
+        if (authUser) {
+          await supabaseAdmin.from("users").upsert(
+            {
+              id: authUser.id,
+              name: name.trim(),
+              email: normalizedEmail,
+              role: role || "member",
+              team_id: team_id || null,
+              has_account: true,
+            },
+            { onConflict: "email" }
+          );
+        }
+      }
+
+      const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(
+        normalizedEmail,
+        redirectTo ? { redirectTo } : undefined
+      );
+      if (resetError) {
+        return new Response(JSON.stringify({ error: resetError.message }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ existingAccount: true }), {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
