@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
   const { data: callerProfile } = await supabaseAdmin
     .from("users")
     .select("role")
-    .eq("id", caller.id)
+    .eq("email", (caller.email ?? "").toLowerCase().trim())
     .single();
 
   if (callerProfile?.role !== "admin") {

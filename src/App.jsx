@@ -104,6 +104,20 @@ const labelStyle = { display: "block", fontSize: 12, color: MUTED, marginBottom:
 const rowBorder  = { borderBottom: `1px solid ${BORDER}` };
 const ghostBtn   = { background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer" };
 
+async function invokeCreateUser(body) {
+  const { data, error } = await supabase.functions.invoke("create-user", { body });
+  if (error) {
+    let message = error.message;
+    try {
+      const parsed = await error.context.json();
+      if (parsed?.error) message = parsed.error;
+    } catch { /* ignore, fall back to error.message */ }
+    return { error: message };
+  }
+  if (data?.error) return { error: data.error };
+  return { data };
+}
+
 async function fetchProfile(email) {
   const { data } = await supabase.from("users").select("id,name,email,role,team_id")
     .eq("email", email.toLowerCase().trim()).single();
@@ -1031,17 +1045,15 @@ function PeopleView() {
   async function handleAddUser(form) {
     const email = form.email.toLowerCase().trim();
     setInviteError("");
-    const { data, error } = await supabase.functions.invoke("create-user", {
-      body: {
-        name: form.name,
-        email,
-        team_id: form.team_id || null,
-        role: "member",
-        redirectTo: `${window.location.origin}/reset-password`,
-      },
+    const { error } = await invokeCreateUser({
+      name: form.name,
+      email,
+      team_id: form.team_id || null,
+      role: "member",
+      redirectTo: `${window.location.origin}/reset-password`,
     });
-    if (error || data?.error) {
-      setInviteError(data?.error || error.message);
+    if (error) {
+      setInviteError(error);
       return;
     }
     setInvited(email);
@@ -1065,17 +1077,15 @@ function PeopleView() {
       setInvited(u.email);
       return;
     }
-    const { data, error } = await supabase.functions.invoke("create-user", {
-      body: {
-        name: u.name,
-        email: u.email,
-        team_id: u.team_id || null,
-        role: u.role || "member",
-        redirectTo: `${window.location.origin}/reset-password`,
-      },
+    const { error } = await invokeCreateUser({
+      name: u.name,
+      email: u.email,
+      team_id: u.team_id || null,
+      role: u.role || "member",
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     setSendingId(null);
-    if (error || data?.error) { setSendError(data?.error || error.message); return; }
+    if (error) { setSendError(error); return; }
     setInvited(u.email);
   }
 
