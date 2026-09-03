@@ -114,6 +114,20 @@ Deno.serve(async (_req) => {
     watcherMap[w.task_id].push(w.user_id);
   });
 
+  // Per-team (department) overdue watchers — added by an admin on the
+  // People page, separate from task_watchers above (which nothing in the
+  // app currently writes to). Same recipients, every task in that team,
+  // rather than needing to be added task-by-task.
+  const { data: teamWatchers } = await supabase
+    .from("team_watchers")
+    .select("team_id, user_id");
+
+  const teamWatcherMap: Record<string, string[]> = {};
+  teamWatchers?.forEach((w: any) => {
+    if (!teamWatcherMap[w.team_id]) teamWatcherMap[w.team_id] = [];
+    teamWatcherMap[w.team_id].push(w.user_id);
+  });
+
   let emailsSent = 0;
 
   for (const task of tasks ?? []) {
@@ -122,7 +136,6 @@ Deno.serve(async (_req) => {
 
     const assignee = userMap[task.assigned_to];
     console.log("Assignee:", assignee?.email ?? "not found");
-    if (!assignee) continue;
 
     const teamName = task.team_id ? (teamMap[task.team_id] ?? "") : "";
     const isOverdue = task.end_date < today;
@@ -133,12 +146,23 @@ Deno.serve(async (_req) => {
       .map((id: string) => userMap[id]?.email)
       .filter(Boolean) as string[];
 
-    const allRecipients = [assignee.email, ...watcherEmails];
+    const teamWatcherEmails: string[] = (task.team_id ? teamWatcherMap[task.team_id] ?? [] : [])
+      .map((id: string) => userMap[id]?.email)
+      .filter(Boolean) as string[];
+
+    // An unassigned task still notifies its team's watchers — only skip
+    // entirely once there's truly nobody to tell.
+    const allRecipients = [...new Set(
+      [assignee?.email, ...watcherEmails, ...teamWatcherEmails].filter(Boolean)
+    )] as string[];
+    if (!allRecipients.length) continue;
+
+    const greetingName = assignee?.name?.split(" ")[0] ?? "team";
 
     if (isOverdue) {
       const subject = `Overdue: ${task.title}`;
       const card = taskCard(task, teamName, "#FEF2F2", "#FECACA", "#DC2626");
-      const body = `<p>Hi ${assignee.name.split(" ")[0]},</p><p>The following task is overdue and still incomplete:</p>${card}<p>Please complete this task or update the due date if needed.</p>`;
+      const body = `<p>Hi ${greetingName},</p><p>The following task is overdue and still incomplete:</p>${card}<p>Please complete this task or update the due date if needed.</p>`;
       const html = emailTemplate(`Overdue: ${task.title}`, body);
       for (const email of allRecipients) {
         await sendEmail(email, subject, html);
@@ -147,7 +171,7 @@ Deno.serve(async (_req) => {
     } else if (isDueSoon) {
       const subject = `Due in 2 days: ${task.title}`;
       const card = taskCard(task, teamName, "#FEF3C7", "#FCD34D", "#92400E");
-      const body = `<p>Hi ${assignee.name.split(" ")[0]},</p><p>A reminder that the following task is due in 2 days:</p>${card}`;
+      const body = `<p>Hi ${greetingName},</p><p>A reminder that the following task is due in 2 days:</p>${card}`;
       const html = emailTemplate(`Due in 2 days: ${task.title}`, body);
       for (const email of allRecipients) {
         await sendEmail(email, subject, html);
