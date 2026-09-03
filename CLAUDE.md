@@ -38,8 +38,9 @@ working this session.
   this function is ever redeployed under a real name, update that one
   call site.
 
-**Built locally this session, NOT yet committed or pushed** — everything
-below this line is sitting in the working tree only:
+**Pushed (commit `b832214`), but needs manual steps before it's fully
+live** — the code is deployed, but three pieces below only take effect
+once you do the corresponding manual step in Supabase:
 
 1. **Dead code removed from `App.jsx`** (~700 lines, file went
    1629→~950 lines). `Main()` actually renders the separate
@@ -114,6 +115,51 @@ below this line is sitting in the working tree only:
    watcher, wait for (or manually trigger) the next `send-emails` cron
    run, confirm you get copied on an overdue email you're not assigned
    to.
+
+## Outstanding punch list
+
+Not in priority order. The four deploy steps above (run both migrations,
+redeploy `send-emails`, then the end-to-end checks) are the immediate
+next actions; everything here is the broader list, added to as of
+2026-09-03.
+
+- **Run `20260903190000_private_task_rls.sql` and
+  `20260903200000_team_overdue_watchers.sql`**, then **redeploy
+  `send-emails`** — see "To actually ship everything above" above for
+  detail. Nothing below matters until these are done.
+- **Decide whether the GitHub repo goes private.** Recommended (see
+  "Other things found this session" below for the reasoning) — your call
+  to actually flip it.
+- **A broader security review**, beyond what this session's read-through
+  covered. This session found and fixed the `users`/`teams` privilege-
+  escalation gap and the private-task RLS gap, and flagged (but didn't
+  fix) the un-gated `reset-tasks`/`send-emails` endpoints — but it was a
+  read-through in the course of other work, not a dedicated pass.
+- **Weekly report — what's done and what's outstanding.** Not yet
+  scoped. Open questions worth answering before building it: who
+  receives it (all admins? a fixed list independent of `role`?), does it
+  reuse the `send-emails` function's existing Resend setup or need its
+  own, is it project-wide or per-team, and does "outstanding" mean
+  overdue tasks, all open tasks, or something broader like the items in
+  this punch list itself.
+- **Get a credit card on file with Resend.** Presumably to avoid email
+  sending (invites, signup notifications, overdue/due-soon reminders —
+  everything in `lib`/`supabase/functions` that sends mail) getting cut
+  off if usage grows past whatever free-tier limit applies. Purely an
+  account/billing action on Resend's own site, nothing in this repo to
+  change.
+- **No secret gate on `reset-tasks`/`send-emails`.** Anyone with the
+  public anon key (i.e. anyone) can invoke either directly right now —
+  see "Other things found this session" below for the full detail and
+  why the risk is currently low but not zero.
+- **`task_watchers` (the per-task table) is dead code with no UI** —
+  decide whether to build a real per-task watcher picker or drop the
+  table/logic. Not blocking anything; the new per-team watcher feature
+  covers the concrete ask that prompted this session's work.
+- **Visually verify the dead-code removal** — click through Tasks/
+  History/People/Reports in a real browser. The build and lint are
+  clean and nothing deleted was ever reachable, but this wasn't
+  re-confirmed live.
 
 ## Other things found this session, not acted on — worth revisiting
 
