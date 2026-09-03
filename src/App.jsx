@@ -152,6 +152,7 @@ function LoginScreen({ onLogin }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault(); setLoading(true); setError("");
@@ -170,6 +171,7 @@ function LoginScreen({ onLogin }) {
   }
 
   if (showForgot) return <ForgotPasswordScreen onBack={() => setShowForgot(false)} />;
+  if (showRequest) return <RequestAccessScreen onBack={() => setShowRequest(false)} />;
 
   return (
     <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -193,10 +195,94 @@ function LoginScreen({ onLogin }) {
             <button type="submit" disabled={loading} style={{ background: ACCENT, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: loading ? 0.7 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
               {loading ? "Signing in…" : "Sign in →"}
             </button>
-            <button type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", textAlign: "center" }}>
-              Forgot password?
-            </button>
+            <div style={{ display: "flex", justifyContent: "center", gap: 6, fontSize: 12 }}>
+              <button type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>
+                Forgot password?
+              </button>
+              <span style={{ color: BORDER }}>·</span>
+              <button type="button" onClick={() => setShowRequest(true)} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer" }}>
+                Request access
+              </button>
+            </div>
           </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── REQUEST ACCESS ─────────────────────────────────────────
+function RequestAccessScreen({ onBack }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setLoading(true); setError("");
+    // Generated client-side (rather than read back via .select() after
+    // insert) because anon has no SELECT policy on signup_requests —
+    // Postgres RLS applies SELECT policies to INSERT...RETURNING too, so
+    // reading the row back here would silently fail.
+    const requestId = crypto.randomUUID();
+    const { error: insertError } = await supabase.from("signup_requests")
+      .insert({ id: requestId, name: name.trim(), email: email.toLowerCase().trim() });
+    if (insertError) {
+      setLoading(false);
+      if (insertError.code === "23505") {
+        setError("You've already requested access — an admin will be in touch soon.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+      return;
+    }
+    // Best-effort nudge to admins — the request itself is already saved
+    // regardless of whether this succeeds, so failures here are silent.
+    try {
+      // Deployed under this name, not "notify-signup-request" — the
+      // Supabase dashboard's rename only changes the display label, not
+      // the actual routing slug, so the invoke name has to match what's
+      // really live rather than what it's labeled as.
+      await supabase.functions.invoke("smart-endpoint", { body: { id: requestId } });
+    } catch { /* the People page's pending list is the source of truth */ }
+    setLoading(false);
+    setSent(true);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ display: "inline-flex", marginBottom: 16 }}><SunLogo /></div>
+          <h1 style={{ color: TEXT, fontSize: 24, fontWeight: 700, margin: 0 }}>Request access</h1>
+          <p style={{ color: MUTED, fontSize: 14, marginTop: 6 }}>New here? Ask for an account below</p>
+        </div>
+        <div style={{ background: CARD, borderRadius: 16, padding: 28, border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+          {sent ? (
+            <div style={{ textAlign: "center" }}>
+              <p style={{ color: TEXT, fontSize: 13, marginBottom: 16 }}>Thanks! An admin will review your request and email you a link to set up your account.</p>
+              <button type="button" onClick={onBack} style={{ width: "100%", padding: 12, background: ACCENT, border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Back to sign in</button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={labelStyle}>Full name</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Jane Smith" required autoFocus style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@samesun.com" required style={inputStyle} />
+              </div>
+              {error && <p style={{ color: "#991B1B", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8, border: "1px solid #FECACA" }}>{error}</p>}
+              <button type="submit" disabled={loading} style={{ background: ACCENT, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: loading ? 0.7 : 1, boxShadow: "0 2px 8px rgba(245,166,35,0.4)" }}>
+                {loading ? "Submitting…" : "Request access →"}
+              </button>
+              <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer", textAlign: "center" }}>
+                Back to sign in
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
@@ -347,7 +433,7 @@ function Main({ user, onLogout }) {
         <div style={{ maxWidth: 860, margin: "0 auto", padding: "20px 20px 80px" }}>
           {tab === "tasks"   && <TasksPage user={user} />}
           {tab === "history" && <HistoryView />}
-          {tab === "people"  && <PeopleView />}
+          {tab === "people"  && <PeopleView currentUser={user} />}
           {tab === "reports" && <ReportsPage />}
         </div>
       </div>
@@ -1018,7 +1104,8 @@ function HistoryView() {
 }
 
 // ── PEOPLE VIEW ────────────────────────────────────────────
-function PeopleView() {
+function PeopleView({ currentUser }) {
+  const isAdmin = currentUser?.role === "admin";
   const [users, setUsers]                   = useState([]);
   const [teams, setTeams]                   = useState({});
   const [loading, setLoading]               = useState(true);
@@ -1028,6 +1115,9 @@ function PeopleView() {
   const [inviteError, setInviteError]       = useState("");
   const [sendingId, setSendingId]           = useState(null);
   const [sendError, setSendError]           = useState("");
+  const [requests, setRequests]             = useState([]);
+  const [approvingRequest, setApprovingRequest] = useState(null);
+  const [requestError, setRequestError]     = useState("");
 
   const loadPeople = useCallback(async () => {
     setLoading(true);
@@ -1040,7 +1130,15 @@ function PeopleView() {
     setLoading(false);
   }, []);
 
+  const loadRequests = useCallback(async () => {
+    if (!isAdmin) return;
+    const { data } = await supabase.from("signup_requests").select("*")
+      .eq("status", "pending").order("created_at", { ascending: true });
+    setRequests(data ?? []);
+  }, [isAdmin]);
+
   useEffect(() => { loadPeople(); }, [loadPeople]);
+  useEffect(() => { loadRequests(); }, [loadRequests]);
 
   async function handleAddUser(form) {
     const email = form.email.toLowerCase().trim();
@@ -1056,8 +1154,23 @@ function PeopleView() {
       setInviteError(error);
       return;
     }
+    if (approvingRequest) {
+      await supabase.from("signup_requests").update({
+        status: "approved", reviewed_by: currentUser.id, reviewed_at: new Date().toISOString(),
+      }).eq("id", approvingRequest.id);
+      setApprovingRequest(null); loadRequests();
+    }
     setInvited(email);
     setShowAdd(false); loadPeople();
+  }
+
+  async function handleDismissRequest(request) {
+    setRequestError("");
+    const { error } = await supabase.from("signup_requests").update({
+      status: "dismissed", reviewed_by: currentUser.id, reviewed_at: new Date().toISOString(),
+    }).eq("id", request.id);
+    if (error) { setRequestError(error.message); return; }
+    loadRequests();
   }
 
   async function handleEditUser(form) {
@@ -1095,8 +1208,34 @@ function PeopleView() {
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <p style={{ color: MUTED, fontSize: 13, fontWeight: 500 }}>{users.length} people</p>
-        <button onClick={() => setShowAdd(true)} style={{ background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "8px 16px", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>+ Add person</button>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(true)} style={{ background: ACCENT, border: "none", color: "#fff", fontSize: 13, fontWeight: 700, padding: "8px 16px", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(245,166,35,0.35)" }}>+ Add person</button>
+        )}
       </div>
+
+      {requestError && <p style={{ color: "#DC2626", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8 }}>{requestError}</p>}
+
+      {isAdmin && requests.length > 0 && (
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: ACCENT, marginBottom: 6 }}>
+            🔔 Pending requests · {requests.length}
+          </p>
+          <div style={{ ...card, background: "#FFFBEB", borderColor: "#FDE68A" }}>
+            {requests.map((r, i) => (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", ...(i < requests.length - 1 ? rowBorder : {}) }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ color: TEXT, fontSize: 13, fontWeight: 600 }}>{r.name}</p>
+                  <p style={{ color: MUTED, fontSize: 11, marginTop: 1 }}>{r.email}</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <button onClick={() => handleDismissRequest(r)} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>Dismiss</button>
+                  <button onClick={() => setApprovingRequest(r)} style={{ background: ACCENT, border: "none", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 6, cursor: "pointer" }}>Approve →</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {sendError && <p style={{ color: "#DC2626", fontSize: 12, background: "#FEF2F2", padding: "8px 12px", borderRadius: 8 }}>{sendError}</p>}
 
@@ -1119,14 +1258,18 @@ function PeopleView() {
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: u.has_account ? "#D1FAE5" : "#F3F4F6", color: u.has_account ? "#065F46" : "#6B7280", fontWeight: 600 }}>
                     {u.has_account ? "Active" : "No account yet"}
                   </span>
-                  <button
-                    onClick={() => handleSendAccess(u)}
-                    disabled={sendingId === u.id}
-                    style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", opacity: sendingId === u.id ? 0.6 : 1 }}
-                  >
-                    {sendingId === u.id ? "Sending…" : u.has_account ? "Send reset" : "Send invite"}
-                  </button>
-                  <button onClick={() => setEditingUser(u)} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>Edit</button>
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => handleSendAccess(u)}
+                        disabled={sendingId === u.id}
+                        style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", opacity: sendingId === u.id ? 0.6 : 1 }}
+                      >
+                        {sendingId === u.id ? "Sending…" : u.has_account ? "Send reset" : "Send invite"}
+                      </button>
+                      <button onClick={() => setEditingUser(u)} style={{ background: "none", border: `1px solid ${BORDER}`, color: MUTED, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer" }}>Edit</button>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -1145,13 +1288,19 @@ function PeopleView() {
       )}
 
       {showAdd && <UserFormModal mode="add" teams={Object.values(teams)} onSave={handleAddUser} onCancel={() => setShowAdd(false)} error={inviteError} />}
+      {approvingRequest && (
+        <UserFormModal mode="add" title="Approve request" user={approvingRequest} teams={Object.values(teams)}
+          onSave={handleAddUser}
+          onCancel={() => setApprovingRequest(null)}
+          error={inviteError} />
+      )}
       {editingUser && <UserFormModal mode="edit" user={editingUser} teams={Object.values(teams)} onSave={handleEditUser} onDelete={async () => { await supabase.from("users").delete().eq("id", editingUser.id); setEditingUser(null); loadPeople(); }} onCancel={() => setEditingUser(null)} />}
     </div>
   );
 }
 
 // ── USER FORM MODAL ────────────────────────────────────────
-function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel, error }) {
+function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel, error, title }) {
   const [form, setForm] = useState({ name: user?.name ?? "", email: user?.email ?? "", team_id: user?.team_id ?? "", role: user?.role ?? "member" });
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1166,7 +1315,7 @@ function UserFormModal({ mode, user, teams, onSave, onDelete, onCancel, error })
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={onCancel}>
       <div style={{ background: CARD, borderRadius: 16, padding: 22, width: "100%", maxWidth: 440, border: `1px solid ${BORDER}`, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>{mode === "add" ? "Add person" : "Edit person"}</p>
+          <p style={{ color: TEXT, fontWeight: 700, fontSize: 16 }}>{title ?? (mode === "add" ? "Add person" : "Edit person")}</p>
           {mode === "edit" && (!confirm
             ? <button onClick={() => setConfirm(true)} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Remove</button>
             : <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
