@@ -390,9 +390,9 @@ function Main({ user, onLogout }) {
     const { data: instanceData } = await query;
     if (!instanceData?.length) { setCompletedInstances([]); return; }
     const taskIds = [...new Set(instanceData.map(i => i.task_id))];
-    const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds);
+    const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds).eq("is_active", true);
     const taskMap = {}; taskData?.forEach(t => { taskMap[t.id] = t; }); setCompletedTasks(taskMap);
-    setCompletedInstances(instanceData);
+    setCompletedInstances(instanceData.filter(i => taskMap[i.task_id]));
   }, []);
 
   useEffect(() => {
@@ -541,7 +541,7 @@ function HistoryView() {
     const userMap = {}; userData?.forEach(u => { userMap[u.id] = u; }); setUsers(userMap);
     if (!instanceData?.length) { setInstances([]); setLoading(false); return; }
     const taskIds = [...new Set(instanceData.map(i => i.task_id))];
-    const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds);
+    const { data: taskData } = await supabase.from("tasks").select("*").in("id", taskIds).eq("is_active", true);
     const taskMap = {}; taskData?.forEach(t => { taskMap[t.id] = t; }); setTasks(taskMap);
     setInstances(instanceData); setLoading(false);
   }, [preset, from, to]);

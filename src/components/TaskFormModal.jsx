@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabaseClient'
 import { CITY_OPTIONS } from '../lib/constants'
 
 const inputClass = 'w-full px-3 py-2 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] text-sm text-[#1e293b] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/25 focus:border-[#3b82f6] transition-all'
@@ -30,18 +31,50 @@ export default function TaskFormModal({ mode, task, teams, users, onSave, onDele
     assigned_to: task?.assigned_to ?? '',
     frequency: task?.frequency ?? '',
     location: task?.location ?? '',
-    start_date: task?.start_date ?? '',
     end_date: task?.end_date ?? '',
+    reminder_days_before: task?.reminder_days_before ?? 2,
     is_private: task?.is_private ?? false,
   })
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [watchers, setWatchers] = useState([])
+  const [addingWatcher, setAddingWatcher] = useState(false)
+  const [watcherError, setWatcherError] = useState('')
   const update = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const loadWatchers = useCallback(async () => {
+    if (mode !== 'edit' || !task?.id) return
+    const { data } = await supabase.from('task_watchers').select('id, user_id').eq('task_id', task.id)
+    setWatchers(data ?? [])
+  }, [mode, task?.id])
+
+  useEffect(() => { loadWatchers() }, [loadWatchers])
+
+  async function handleAddWatcher(userId) {
+    setAddingWatcher(false)
+    if (!userId) return
+    setWatcherError('')
+    const { error } = await supabase.from('task_watchers').insert({ task_id: task.id, user_id: userId })
+    if (error) { setWatcherError(error.message); return }
+    loadWatchers()
+  }
+
+  async function handleRemoveWatcher(id) {
+    setWatcherError('')
+    const { error } = await supabase.from('task_watchers').delete().eq('id', id)
+    if (error) { setWatcherError(error.message); return }
+    loadWatchers()
+  }
 
   async function handleSave() {
     if (!form.title.trim()) return
     setSaving(true)
-    await onSave({ ...form, title: form.title.trim(), description: form.description.trim() })
+    await onSave({
+      ...form,
+      title: form.title.trim(),
+      description: form.description.trim(),
+      reminder_days_before: Number.isFinite(form.reminder_days_before) ? form.reminder_days_before : 2,
+    })
     setSaving(false)
   }
 
@@ -128,16 +161,21 @@ export default function TaskFormModal({ mode, task, teams, users, onSave, onDele
             </select>
           </div>
 
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className={labelClass}>Start date</label>
-              <input type="date" value={form.start_date} onChange={e => update('start_date', e.target.value)} className={inputClass} />
-            </div>
-            <div className="flex-1">
-              <label className={labelClass}>Due date</label>
-              <input type="date" value={form.end_date} onChange={e => update('end_date', e.target.value)} className={inputClass} />
-            </div>
+          <div>
+            <label className={labelClass}>Due date</label>
+            <input type="date" value={form.end_date} onChange={e => update('end_date', e.target.value)} className={inputClass} />
           </div>
+
+          {form.end_date && (
+            <div>
+              <label className={labelClass}>Remind me this many days before</label>
+              <input
+                type="number" min={0} max={60} value={form.reminder_days_before}
+                onChange={e => update('reminder_days_before', e.target.value === '' ? '' : Number(e.target.value))}
+                className={`${inputClass} w-24`}
+              />
+            </div>
+          )}
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -146,6 +184,52 @@ export default function TaskFormModal({ mode, task, teams, users, onSave, onDele
             />
             <span className="text-sm text-[#64748b]">Private — only visible to me</span>
           </label>
+
+          {mode === 'edit' && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className={`${labelClass} mb-0`}>Watchers</label>
+                {addingWatcher ? (
+                  <select
+                    autoFocus defaultValue=""
+                    onChange={e => handleAddWatcher(e.target.value)}
+                    onBlur={() => setAddingWatcher(false)}
+                    className="px-2 py-1 rounded-md border border-[#e2e8f0] text-xs text-[#1e293b]"
+                  >
+                    <option value="" disabled>Choose a person…</option>
+                    {users.filter(u => !watchers.some(w => w.user_id === u.id)).map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <button
+                    onClick={() => setAddingWatcher(true)}
+                    className="text-xs font-medium text-[#3b82f6] hover:underline"
+                  >
+                    + Add watcher
+                  </button>
+                )}
+              </div>
+              {watchers.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {watchers.map(w => {
+                    const u = users.find(u => u.id === w.user_id)
+                    if (!u) return null
+                    return (
+                      <span key={w.id} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1e293b] bg-[#f8fafc] border border-[#e2e8f0] rounded-full pl-2.5 pr-1.5 py-0.5">
+                        {u.name}
+                        <button onClick={() => handleRemoveWatcher(w.id)} title="Remove" className="text-[#94a3b8] hover:text-[#dc2626] leading-none">×</button>
+                      </span>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-[#94a3b8]">Nobody's watching this task specifically.</p>
+              )}
+              <p className="text-[11px] text-[#94a3b8] mt-1">Watchers get copied on this task's overdue / due-soon emails, on top of the assignee.</p>
+              {watcherError && <p className="text-xs text-[#dc2626] mt-1">{watcherError}</p>}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 mt-5">

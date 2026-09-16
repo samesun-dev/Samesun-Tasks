@@ -12,6 +12,18 @@ console.log("SUPABASE_URL present:", !!Deno.env.get("SUPABASE_URL"));
 const APP_URL = "https://samesun-tasks.vercel.app";
 const FROM = "Samesun Tasks <tasks@tasks.samesun.com>";
 
+// Task title/description are set by any authenticated employee, not just
+// admins, and go straight into HTML emails sent from a trusted address —
+// escape them so a task can't be used to inject markup/links into mail
+// sent to its assignee and watchers.
+function escapeHtml(str: string) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 async function sendEmail(to: string, subject: string, html: string) {
   console.log("Sending email to:", to, "subject:", subject);
   const res = await fetch("https://api.resend.com/emails", {
@@ -51,21 +63,23 @@ function taskCard(task: any, teamName: string, color: string, borderColor: strin
   });
   return `
     <div style="background: ${color}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 14px 16px; margin: 16px 0;">
-      <p style="font-weight: 700; color: #0F1523; margin: 0 0 4px;">${task.title}</p>
-      ${task.description ? `<p style="color: #6B7280; margin: 0 0 8px; font-size: 13px;">${task.description}</p>` : ""}
-      ${teamName ? `<span style="background: #EDE9FE; color: #5B21B6; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 600;">${teamName}</span>` : ""}
+      <p style="font-weight: 700; color: #0F1523; margin: 0 0 4px;">${escapeHtml(task.title)}</p>
+      ${task.description ? `<p style="color: #6B7280; margin: 0 0 8px; font-size: 13px;">${escapeHtml(task.description)}</p>` : ""}
+      ${teamName ? `<span style="background: #EDE9FE; color: #5B21B6; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 600;">${escapeHtml(teamName)}</span>` : ""}
       <p style="color: ${dateColor}; font-size: 13px; font-weight: 600; margin: 8px 0 0;">Due: ${dateStr}</p>
     </div>
   `;
 }
 
+function addDaysISO(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
 Deno.serve(async (_req) => {
   console.log("Function started");
   const today = new Date().toISOString().split("T")[0];
-  const twoDaysFromNow = new Date();
-  twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
-  const dueSoonDate = twoDaysFromNow.toISOString().split("T")[0];
-  console.log("Today:", today, "Due soon date:", dueSoonDate);
 
   const { data: usersData } = await supabase.from("users").select("id, name, email");
   const userMap: Record<string, { name: string; email: string }> = {};
@@ -78,7 +92,7 @@ Deno.serve(async (_req) => {
 
   const { data: tasks, error: tasksError } = await supabase
     .from("tasks")
-    .select("id, title, description, end_date, assigned_to, team_id")
+    .select("id, title, description, end_date, assigned_to, team_id, reminder_days_before")
     .eq("is_active", true)
     .not("assigned_to", "is", null)
     .not("end_date", "is", null);
@@ -138,9 +152,10 @@ Deno.serve(async (_req) => {
     console.log("Assignee:", assignee?.email ?? "not found");
 
     const teamName = task.team_id ? (teamMap[task.team_id] ?? "") : "";
+    const reminderDays = task.reminder_days_before ?? 2;
     const isOverdue = task.end_date < today;
-    const isDueSoon = task.end_date === dueSoonDate;
-    console.log("isOverdue:", isOverdue, "isDueSoon:", isDueSoon);
+    const isDueSoon = task.end_date === addDaysISO(reminderDays);
+    console.log("isOverdue:", isOverdue, "isDueSoon:", isDueSoon, "reminderDays:", reminderDays);
 
     const watcherEmails: string[] = (watcherMap[task.id] ?? [])
       .map((id: string) => userMap[id]?.email)
@@ -158,21 +173,23 @@ Deno.serve(async (_req) => {
     if (!allRecipients.length) continue;
 
     const greetingName = assignee?.name?.split(" ")[0] ?? "team";
+    const safeTitle = escapeHtml(task.title);
 
     if (isOverdue) {
       const subject = `Overdue: ${task.title}`;
       const card = taskCard(task, teamName, "#FEF2F2", "#FECACA", "#DC2626");
       const body = `<p>Hi ${greetingName},</p><p>The following task is overdue and still incomplete:</p>${card}<p>Please complete this task or update the due date if needed.</p>`;
-      const html = emailTemplate(`Overdue: ${task.title}`, body);
+      const html = emailTemplate(`Overdue: ${safeTitle}`, body);
       for (const email of allRecipients) {
         await sendEmail(email, subject, html);
         emailsSent++;
       }
     } else if (isDueSoon) {
-      const subject = `Due in 2 days: ${task.title}`;
+      const dayLabel = reminderDays === 1 ? "1 day" : `${reminderDays} days`;
+      const subject = `Due in ${dayLabel}: ${task.title}`;
       const card = taskCard(task, teamName, "#FEF3C7", "#FCD34D", "#92400E");
-      const body = `<p>Hi ${greetingName},</p><p>A reminder that the following task is due in 2 days:</p>${card}`;
-      const html = emailTemplate(`Due in 2 days: ${task.title}`, body);
+      const body = `<p>Hi ${greetingName},</p><p>A reminder that the following task is due in ${dayLabel}:</p>${card}`;
+      const html = emailTemplate(`Due in ${dayLabel}: ${safeTitle}`, body);
       for (const email of allRecipients) {
         await sendEmail(email, subject, html);
         emailsSent++;

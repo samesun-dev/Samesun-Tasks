@@ -251,13 +251,30 @@ export default function ReportsPage() {
     ? `${rangeFrom ? formatDate(rangeFrom) : 'the beginning'} – ${rangeTo === today ? 'today' : formatDate(rangeTo)}`
     : RANGE_LABELS[preset]
 
+  function csvCell(value) {
+    let s = value == null ? '' : String(value)
+    // Guard against CSV/formula injection (a title starting with =, +, -, or
+    // @ gets interpreted as a formula by Excel/Sheets on open) and escape
+    // embedded quotes so a title containing " doesn't break the row.
+    if (/^[=+\-@]/.test(s)) s = `'${s}`
+    return `"${s.replace(/"/g, '""')}"`
+  }
+
   function exportCSV() {
     const allInstances = [...completedInstances, ...overdue, ...comingUp]
     const header = 'Task,Team,Status,Assigned To,Completed By,Completed At,Due Date'
     const rows = allInstances.map(inst => {
       const task = inst._task
       const team = task ? teams[task.team_id] : null
-      return `"${task?.title ?? '—'}","${team?.name ?? '—'}","${inst.status}","${users[task?.assigned_to]?.name ?? '—'}","${users[inst.completed_by]?.name ?? '—'}","${inst.completed_at ? new Date(inst.completed_at).toLocaleString('en-GB') : '—'}","${task?.end_date ? formatDate(task.end_date) : '—'}"`
+      return [
+        task?.title ?? '—',
+        team?.name ?? '—',
+        inst.status,
+        users[task?.assigned_to]?.name ?? '—',
+        users[inst.completed_by]?.name ?? '—',
+        inst.completed_at ? new Date(inst.completed_at).toLocaleString('en-GB') : '—',
+        task?.end_date ? formatDate(task.end_date) : '—',
+      ].map(csvCell).join(',')
     })
     const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
