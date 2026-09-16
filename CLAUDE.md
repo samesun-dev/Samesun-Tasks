@@ -22,10 +22,12 @@ working repeatedly.
 
 ## Read this first — current status
 
-**Everything below is live and deployed as of end of day 2026-09-16.**
-The one loose end: `send-emails` was edited once more after the last
-deploy (see "Third round" below) and needs one more redeploy — that's
-the only outstanding "to ship" item left.
+**Everything below is live and deployed as of end of day 2026-09-16,
+including the final `send-emails` redeploy** (confirmed done). Nothing
+code-side is outstanding — what's left in the punch list is all either
+manual/account actions (GitHub visibility, Resend billing) or
+not-yet-scoped feature work (weekly report), plus a few lower-priority
+end-to-end checks.
 
 - Self-service "Request access" on the login screen → `signup_requests`
   → pending-requests queue on the admin People page → Approve (real
@@ -129,21 +131,14 @@ The fix pattern above is reusable (swap in their two ids).
 before the loop ever ran — silently making the "unassigned tasks still
 notify their team's watchers" logic (added in the second round) dead
 code. Removed that filter; the loop already handles a missing assignee
-correctly. **Needs `send-emails` redeployed once more** — this is the
-one outstanding deploy step from today.
-
-### To ship the third round
-1. Redeploy `send-emails` (dashboard editor, paste the current
-   [`supabase/functions/send-emails/index.ts`](supabase/functions/send-emails/index.ts)) —
-   that's it, everything else this round was either data-only (the id
-   fix) or already deployed.
+correctly. **Redeployed and confirmed** — this was the last outstanding
+deploy step from today's work, now done.
 
 ## Outstanding punch list
 
-Not in priority order.
+Not in priority order. Nothing code-side is pending — everything below
+is either a manual/account action or unscoped feature work.
 
-- **Redeploy `send-emails` once more** — see above, the only undeployed
-  code change as of now.
 - **Remaining end-to-end checks** — see the short list above (private
   task visibility across accounts, Remove-a-test-account, a final
   visual click-through).
