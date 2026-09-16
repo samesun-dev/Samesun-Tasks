@@ -223,12 +223,12 @@ export default function ReportsPage() {
     const taskIds = [...new Set(allInstances.map(i => i.task_id))]
     const taskMap = {}
     if (taskIds.length) {
-      const { data: taskData } = await supabase.from('tasks').select('*').in('id', taskIds)
+      const { data: taskData } = await supabase.from('tasks').select('*').in('id', taskIds).eq('is_active', true)
       taskData?.forEach(t => { taskMap[t.id] = t })
     }
 
-    setOpenInstances((openData ?? []).map(i => ({ ...i, _task: taskMap[i.task_id] })))
-    setCompletedInstances((completedData ?? []).map(i => ({ ...i, _task: taskMap[i.task_id] })))
+    setOpenInstances((openData ?? []).filter(i => taskMap[i.task_id]).map(i => ({ ...i, _task: taskMap[i.task_id] })))
+    setCompletedInstances((completedData ?? []).filter(i => taskMap[i.task_id]).map(i => ({ ...i, _task: taskMap[i.task_id] })))
     setLoading(false)
   }, [])
 

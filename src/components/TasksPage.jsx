@@ -66,7 +66,7 @@ export default function TasksPage({ user }) {
       return
     }
     const taskIds = [...new Set(instanceData.map(i => i.task_id))]
-    const { data: taskData } = await supabase.from('tasks').select('*').in('id', taskIds)
+    const { data: taskData } = await supabase.from('tasks').select('*').in('id', taskIds).eq('is_active', true)
     const taskMap = {}
     taskData?.forEach(t => { taskMap[t.id] = t })
     setTasks(taskMap)
