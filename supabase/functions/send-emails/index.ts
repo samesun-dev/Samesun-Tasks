@@ -105,11 +105,15 @@ Deno.serve(async (req) => {
   const teamMap: Record<string, string> = {};
   teamsData?.forEach((t: any) => { teamMap[t.id] = t.name; });
 
+  // Not filtering on assigned_to here — an unassigned task should still
+  // notify its team's watchers (see the allRecipients logic below). This
+  // filter used to require an assignee, which silently excluded
+  // unassigned tasks before the loop ever ran, making that later logic
+  // dead code.
   const { data: tasks, error: tasksError } = await supabase
     .from("tasks")
     .select("id, title, description, end_date, assigned_to, team_id, reminder_days_before")
     .eq("is_active", true)
-    .not("assigned_to", "is", null)
     .not("end_date", "is", null);
 
   console.log("Tasks found:", tasks?.length ?? 0, "Error:", tasksError?.message ?? "none");
