@@ -5,7 +5,22 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-Deno.serve(async () => {
+// Anyone with the public anon key can otherwise invoke this function
+// directly and repeatedly — the Supabase gateway accepts any validly
+// signed project JWT, not just the pg_cron job's service_role key.
+// Gated on CRON_SECRET being set so deploying this doesn't break the
+// daily cron run before the secret + cron job header are configured —
+// see CLAUDE.md for the setup steps.
+const CRON_SECRET = Deno.env.get("CRON_SECRET");
+
+Deno.serve(async (req) => {
+  if (CRON_SECRET && req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const today = new Date();
   const todayISO = today.toISOString().split("T")[0];
   const dayOfWeek = today.getDay();

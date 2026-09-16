@@ -12,6 +12,14 @@ console.log("SUPABASE_URL present:", !!Deno.env.get("SUPABASE_URL"));
 const APP_URL = "https://samesun-tasks.vercel.app";
 const FROM = "Samesun Tasks <tasks@tasks.samesun.com>";
 
+// Anyone with the public anon key can otherwise invoke this function
+// directly and repeatedly — the Supabase gateway accepts any validly
+// signed project JWT, not just the pg_cron job's service_role key.
+// Gated on CRON_SECRET being set so deploying this doesn't break the
+// daily cron run before the secret + cron job header are configured —
+// see CLAUDE.md for the setup steps.
+const CRON_SECRET = Deno.env.get("CRON_SECRET");
+
 // Task title/description are set by any authenticated employee, not just
 // admins, and go straight into HTML emails sent from a trusted address —
 // escape them so a task can't be used to inject markup/links into mail
@@ -77,7 +85,14 @@ function addDaysISO(days: number) {
   return d.toISOString().split("T")[0];
 }
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  if (CRON_SECRET && req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   console.log("Function started");
   const today = new Date().toISOString().split("T")[0];
 

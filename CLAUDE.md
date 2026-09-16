@@ -1,11 +1,12 @@
 # Samesun Tasks — Handoff
 
-Written 2026-09-03, updated 2026-09-16, so a future session (or you,
-picking this back up) has full context without re-deriving it. Committed
-to the repo (not just this local clone) specifically so it survives a
-re-clone or a different machine — update or trim it as this work lands
-and goes stale, the same way Guest Portal's own CLAUDE.md gets kept
-current.
+Written 2026-09-03, updated twice on 2026-09-16 (migrations run + a
+delete-task bug fix, then a second round: per-task watchers, configurable
+reminders, and a security review), so a future session (or you, picking
+this back up) has full context without re-deriving it. Committed to the
+repo (not just this local clone) specifically so it survives a re-clone
+or a different machine — update or trim it as this work lands and goes
+stale, the same way Guest Portal's own CLAUDE.md gets kept current.
 
 Local clone: `BD/Samesun Tasks/` (sibling to the unrelated `BD/Guest
 Portal/` project — different repo, different Supabase project, don't
@@ -118,21 +119,117 @@ both files; user confirmed working live after deploy.
   doesn't see the section.
 - Click through Tasks/History/People/Reports to visually confirm the
   `App.jsx` dead-code removal didn't change anything.
+- Test the new per-task "Watchers" section in the task edit modal, and
+  the new "Remind me this many days before" field (see below).
+- Test "Remove" on the People page end-to-end: remove a test account,
+  confirm they can no longer sign in at all (not just that their profile
+  row is gone).
+
+## Second round, 2026-09-16 — pushed as commits `1747423` then a follow-up
+
+Triggered by: you reported a "delete task" bug (fixed earlier, see above),
+then asked about the `start_date`/`end_date` fields (start_date turned
+out to be pure dead UI — removed), then asked for a broader security
+review plus building out the `task_watchers` piece.
+
+**Shipped in the code, needs the manual steps below before it's live:**
+
+1. **Per-task watchers** — real UI in the task edit modal (`TaskFormModal.jsx`):
+   chips of current watchers + "+ Add watcher" dropdown, same pattern as
+   the per-team watchers on the People page. `task_watchers` RLS tightened
+   to respect the private-task carve-out
+   ([`20260916120000_task_watchers_rls.sql`](supabase/migrations/20260916120000_task_watchers_rls.sql),
+   **not yet run**) — it previously had the same "any authenticated user,
+   full access" blanket policy that `tasks`/`task_instances` had before
+   the private-task fix.
+2. **`start_date` removed.** It was saved to the DB but never read
+   anywhere — not the Tasks grouping, not Reports, not the recurring
+   scheduler (that's driven purely by `frequency`), not the reminder
+   emails. Pure UI confusion with zero effect. Removed the field from
+   `TaskFormModal.jsx` and the two save paths in `TasksPage.jsx`. The
+   `start_date` column itself is untouched in the DB (harmless, just
+   unused) — no migration needed for this part.
+3. **Configurable reminder lead time** — new `reminder_days_before`
+   column, default 2
+   ([`20260916130000_task_reminder_days.sql`](supabase/migrations/20260916130000_task_reminder_days.sql),
+   **not yet run**). `send-emails` now computes the "due soon" trigger
+   per-task (`addDaysISO(task.reminder_days_before ?? 2)`) instead of a
+   single hardcoded `+2` for every task. The form field only shows once a
+   due date is set, to avoid adding clutter to tasks without one.
+4. **Security review fixes** (see the review write-up further down for
+   full detail):
+   - Same `is_active` filtering bug fixed earlier today also existed in
+     `App.jsx`'s History tab and Completed drawer — fixed the same way.
+   - `send-emails` now escapes task title/description before putting
+     them in HTML emails (it didn't before — any employee could inject
+     markup/links into mail sent from `tasks@tasks.samesun.com`).
+   - CSV export now escapes quotes and guards against formula injection
+     (a title starting with `=`/`+`/`-`/`@`).
+   - **New `delete-user` Edge Function** — the People page's "Remove" used
+     to only delete the `public.users` row via a plain client call,
+     never the person's actual Supabase Auth account. That meant a
+     "removed" person's password kept working and they retained
+     effectively full access forever (most read policies only check
+     `auth.role() = 'authenticated'`, not "has a profile row"). This was
+     the most serious finding of the review. The new function is
+     admin-gated (same pattern as `create-user`), deletes the real Auth
+     account first, then the profile row. **Not yet deployed** — needs
+     the same manual Edge Function creation as `create-user`/`send-emails`
+     (dashboard → Edge Functions → New function → name it exactly
+     `delete-user` → paste
+     [`supabase/functions/delete-user/index.ts`](supabase/functions/delete-user/index.ts)).
+     `App.jsx`'s `handleRemoveUser` already calls it via
+     `supabase.functions.invoke("delete-user", ...)` — until the function
+     exists, clicking Remove on the People page will fail with an error
+     shown in the modal (safe failure, not a silent no-op).
+   - **Secret gate added to `reset-tasks`/`send-emails`** — both now
+     check an `x-cron-secret` header against a `CRON_SECRET` env var, but
+     *only if `CRON_SECRET` is set* — this is deliberate so redeploying
+     the functions today doesn't break the daily cron runs before you've
+     had a chance to configure the secret. To actually activate the gate:
+     1. Supabase dashboard → Edge Functions → Manage secrets → add
+        `CRON_SECRET` = some random value (e.g. generate one with
+        `openssl rand -hex 32` or similar).
+     2. Redeploy both `reset-tasks` and `send-emails` (the secret needs
+        to be visible to `Deno.env.get` — functions pick up secrets at
+        invoke time, but redeploy after adding it if in doubt).
+     3. Database → Cron Jobs (or wherever the "reset tasks daily" / "send
+        emails daily" jobs live in the Supabase Cron integration) → edit
+        each job's `net.http_post` call → add `'x-cron-secret',
+        '<the same value>'` to the `headers` argument, alongside the
+        existing `Authorization` header.
+     Until all three steps are done, the gate stays inactive (open, same
+     as today) — nothing breaks either way, but it's also not actually
+     closing the gap until you do this.
+
+### To ship the second round
+1. Run `20260916120000_task_watchers_rls.sql` then
+   `20260916130000_task_reminder_days.sql` in the Supabase SQL editor
+   (either order).
+2. Redeploy `send-emails` again (dashboard editor — it changed again for
+   the HTML-escaping fix, the per-task reminder days, and the secret
+   gate).
+3. Redeploy `reset-tasks` (dashboard editor — changed for the secret
+   gate).
+4. Create the new `delete-user` Edge Function (see above) — this one
+   doesn't exist yet at all, unlike the others which are redeploys.
+5. Optional but recommended: activate the `CRON_SECRET` gate per the
+   3 steps above.
+6. `git add -A && git commit` and push if you made any of these changes
+   locally — but the code side is already pushed as of this session, so
+   steps 1-5 are the only remaining work.
 
 ## Outstanding punch list
 
-Not in priority order. As of 2026-09-16, all four original deploy steps
-(both migrations, `send-emails` redeploy) are done — the remaining
-end-to-end checks above are the immediate next actions.
+Not in priority order.
 
+- **Do the "To ship the second round" steps above** — nothing in that
+  round is live until you do. Highest priority is #4 (deploy
+  `delete-user`) since "Remove" on the People page currently either does
+  nothing useful (pre-deploy: errors safely) or, before this session,
+  silently failed to revoke access.
 - **Decide whether the GitHub repo goes private.** Recommended (see
-  "Other things found this session" below for the reasoning) — your call
-  to actually flip it.
-- **A broader security review**, beyond what this session's read-through
-  covered. This session found and fixed the `users`/`teams` privilege-
-  escalation gap and the private-task RLS gap, and flagged (but didn't
-  fix) the un-gated `reset-tasks`/`send-emails` endpoints — but it was a
-  read-through in the course of other work, not a dedicated pass.
+  below for the reasoning) — your call to actually flip it.
 - **Weekly report — what's done and what's outstanding.** Not yet
   scoped. Open questions worth answering before building it: who
   receives it (all admins? a fixed list independent of `role`?), does it
@@ -146,44 +243,14 @@ end-to-end checks above are the immediate next actions.
   off if usage grows past whatever free-tier limit applies. Purely an
   account/billing action on Resend's own site, nothing in this repo to
   change.
-- **No secret gate on `reset-tasks`/`send-emails`.** Anyone with the
-  public anon key (i.e. anyone) can invoke either directly right now —
-  see "Other things found this session" below for the full detail and
-  why the risk is currently low but not zero.
-- **`task_watchers` (the per-task table) is dead code with no UI** —
-  decide whether to build a real per-task watcher picker or drop the
-  table/logic. Not blocking anything; the new per-team watcher feature
-  covers the concrete ask that prompted this session's work.
 
-## Other things found this session, not acted on — worth revisiting
+## Other things found, not acted on — worth revisiting
 
-- **`reset-tasks` and `send-emails` Edge Functions have no secret gate.**
-  Confirmed exactly how they're triggered: two `pg_cron` jobs (visible in
-  Supabase's Cron integration — "reset tasks daily," "send emails
-  daily"), each a raw `net.http_post` call authenticated with the real
-  `service_role` key pulled from Vault. That's how *this* caller
-  authenticates, but it doesn't restrict *other* callers — Supabase's
-  Edge Function gateway accepts any validly-signed project JWT, and the
-  public anon key (shipped in every page's source) qualifies. So anyone
-  who finds either URL can invoke them repeatedly right now. Low real
-  damage (both are roughly idempotent — reset-tasks checks for an
-  existing instance before creating one, send-emails would just cause
-  duplicate/early emails), but cheap to close with a shared-secret header
-  check, same pattern Guest Portal uses for `CRON_SECRET`. Not done this
-  session — wasn't asked for, flagged for a decision later.
-- **`task_watchers` (the per-task table, not the new per-team one) is
-  vestigial.** It has real RLS from the very first migration and
-  `send-emails` still reads it, but nothing in the app UI ever writes to
-  it — grepped the whole `src/` tree, zero references outside the RLS
-  migration and the email function. In practice it's always empty. Not
-  removed or built out this session (the new team-level watcher feature
-  covers the actual ask instead) — worth deciding whether to build a
-  real per-task watcher UI later or just drop the dead table/logic.
-- **GitHub repo is public.** No hardcoded secrets found in the review
-  (the anon key is meant to be public, Supabase's own model, matches how
-  Guest Portal treats its own anon key) — but no reason for an internal
-  ops tool's source to be publicly readable either. Recommended making
-  it private; needs your GitHub admin action.
+- **GitHub repo is public.** No hardcoded secrets found in either
+  session's review (the anon key is meant to be public, Supabase's own
+  model, matches how Guest Portal treats its own anon key) — but no
+  reason for an internal ops tool's source to be publicly readable
+  either. Recommended making it private; needs your GitHub admin action.
 
 ## Schema/gotchas discovered this session
 
@@ -206,9 +273,14 @@ end-to-end checks above are the immediate next actions.
   it rather than re-deriving the check if adding more admin-gated tables
   later.
 - **`role` has exactly one real effect in this app**: gating the
-  `create-user` Edge Function (admin-only invites) and, as of this
-  session's RLS fix, direct writes to `users`/`teams`/`signup_requests`/
-  `team_watchers`. Nothing else in the app branches on it.
+  `create-user`/`delete-user` Edge Functions (admin-only invite/remove)
+  and direct writes to `users`/`teams`/`signup_requests`/`team_watchers`/
+  `task_watchers`. Nothing else in the app branches on it.
+- **Deleting a Supabase Auth user only via `public.users` doesn't revoke
+  anything** — see the `delete-user` write-up above. If you ever add
+  another "remove access" path in this app, route it through that
+  function (or replicate its `auth.admin.deleteUser` call) rather than a
+  plain `.from("users").delete()`.
 
 ## What this project is
 
@@ -223,6 +295,8 @@ real account that skips admin approval.
 Core tables: `teams` (fixed set — hr/sales/marketing/growth/finance/ops,
 seeded once, no UI to add more), `users` (mirrors `auth.users`, kept in
 sync by a trigger), `tasks` / `task_instances` (a task is the recurring
-definition, an instance is one due-date occurrence of it), `task_watchers`
-(dead, see above), and now `signup_requests` / `team_watchers` (new this
-session).
+definition, an instance is one due-date occurrence of it, `end_date` is
+the only date field that does anything), `task_watchers` (per-task
+watchers, now with a real UI as of the second 2026-09-16 round),
+`team_watchers` (per-team watchers, admin-managed on the People page),
+and `signup_requests` (the access-request queue).

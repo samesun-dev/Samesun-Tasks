@@ -97,6 +97,20 @@ async function invokeCreateUser(body) {
   return { data };
 }
 
+async function invokeDeleteUser(body) {
+  const { data, error } = await supabase.functions.invoke("delete-user", { body });
+  if (error) {
+    let message = error.message;
+    try {
+      const parsed = await error.context.json();
+      if (parsed?.error) message = parsed.error;
+    } catch { /* ignore, fall back to error.message */ }
+    return { error: message };
+  }
+  if (data?.error) return { error: data.error };
+  return { data };
+}
+
 async function fetchProfile(email) {
   const { data } = await supabase.from("users").select("id,name,email,role,team_id")
     .eq("email", email.toLowerCase().trim()).single();
@@ -656,6 +670,7 @@ function PeopleView({ currentUser }) {
   const [editingUser, setEditingUser]       = useState(null);
   const [invited, setInvited]               = useState(null);
   const [inviteError, setInviteError]       = useState("");
+  const [removeError, setRemoveError]       = useState("");
   const [sendingId, setSendingId]           = useState(null);
   const [sendError, setSendError]           = useState("");
   const [requests, setRequests]             = useState([]);
@@ -745,6 +760,13 @@ function PeopleView({ currentUser }) {
   async function handleEditUser(form) {
     const email = form.email.toLowerCase().trim();
     await supabase.from("users").update({ name: form.name, email, team_id: form.team_id || null, role: form.role }).eq("id", editingUser.id);
+    setEditingUser(null); loadPeople();
+  }
+
+  async function handleRemoveUser(userId) {
+    setRemoveError("");
+    const { error } = await invokeDeleteUser({ userId });
+    if (error) { setRemoveError(error); return; }
     setEditingUser(null); loadPeople();
   }
 
@@ -913,7 +935,7 @@ function PeopleView({ currentUser }) {
           onCancel={() => setApprovingRequest(null)}
           error={inviteError} />
       )}
-      {editingUser && <UserFormModal mode="edit" user={editingUser} teams={Object.values(teams)} onSave={handleEditUser} onDelete={async () => { await supabase.from("users").delete().eq("id", editingUser.id); setEditingUser(null); loadPeople(); }} onCancel={() => setEditingUser(null)} />}
+      {editingUser && <UserFormModal mode="edit" user={editingUser} teams={Object.values(teams)} onSave={handleEditUser} onDelete={() => handleRemoveUser(editingUser.id)} onCancel={() => setEditingUser(null)} error={removeError} />}
     </div>
   );
 }
