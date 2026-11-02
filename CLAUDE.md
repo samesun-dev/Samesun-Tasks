@@ -231,7 +231,12 @@ is either a manual/account action or unscoped feature work.
   `public.users.id != auth.users.id` problem your account had. It only
   surfaces as a confusing RLS error when that person tries an
   admin-gated write, so it could be sitting latent on other accounts
-  right now. The diagnostic query is in the "Third round" section above.
+  right now. The diagnostic query is in the "Third round" section above,
+  and now also as a ready-to-run script at
+  `supabase/scripts/audit_id_mismatches.sql` (2026-11-02) — paste it
+  into the Supabase SQL Editor, needs your login so wasn't run from
+  here. It's read-only; the per-row fix (if it finds anything) still
+  needs the manual id-swap pattern from the "Third round" section.
 
 ## Other things found, not acted on — worth revisiting
 
