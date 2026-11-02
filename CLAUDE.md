@@ -4,13 +4,15 @@ Written 2026-09-03, substantially updated 2026-09-16 across three rounds
 of work in one long session (migrations + a delete-task fix; then
 per-task watchers/configurable reminders/a security review; then an
 id-mismatch bug on the site owner's own account plus an unassigned-task
-bug in `send-emails`), then updated again 2026-11-02 for a `send-emails`
-rework (overdue throttle + grouped reminder emails — see "Fourth round"
-below), so a future session (or you, picking this back up) has full
-context without re-deriving it. Committed to the repo (not just this
-local clone) specifically so it survives a re-clone or a different
-machine — update or trim it as this work lands and goes stale, the same
-way Guest Portal's own CLAUDE.md gets kept current.
+bug in `send-emails`), then updated again 2026-11-02 twice in the same
+day — first for a `send-emails` rework (overdue throttle + grouped
+reminder emails — see "Fourth round" below), then for a new
+`weekly-report` function (see "Fifth round" below) — so a future
+session (or you, picking this back up) has full context without
+re-deriving it. Committed to the repo (not just this local clone)
+specifically so it survives a re-clone or a different machine — update
+or trim it as this work lands and goes stale, the same way Guest
+Portal's own CLAUDE.md gets kept current.
 
 Local clone: `BD/Samesun Tasks/` (sibling to the unrelated `BD/Guest
 Portal/` project — different repo, different Supabase project, don't
@@ -24,15 +26,22 @@ working repeatedly.
 
 ## Read this first — current status
 
-**Everything below is live and deployed as of 2026-11-02**, including
-the `send-emails` overdue-throttle + grouped-email rework (see "Fourth
-round" below — confirmed deployed by diffing pasted dashboard code
-against the committed source, not just trusting the Deploy click).
-Nothing code-side is outstanding on that work. The older punch list
-further down is a separate, still-open list — manual/account actions
-(GitHub visibility, Resend billing) and not-yet-scoped feature work
-(weekly report), plus a few lower-priority end-to-end checks — none of
-that was touched in this round.
+**The `send-emails` rework is live and deployed as of 2026-11-02**
+(overdue throttle + grouped emails — see "Fourth round" below,
+confirmed deployed by diffing pasted dashboard code against the
+committed source, not just trusting the Deploy click).
+
+**The new `weekly-report` function (Fifth round, same day) is written
+and committed but NOT yet deployed or wired to a cron trigger** — next
+session (or you) needs to: (1) deploy it via the Supabase dashboard code
+editor same as the other functions, and (2) add an external cron entry
+hitting it, since there's no cron config in this repo for any function
+(see "What this project is" / existing cron setup for `send-emails` —
+same external scheduler, new URL). Full detail in "Fifth round" below.
+
+The older punch list further down is a separate, still-open list —
+manual/account actions (GitHub visibility, Resend billing) and a few
+lower-priority end-to-end checks — none of that was touched today.
 
 - **(2026-11-02) Overdue reminders throttled to every 2 days, all
   reminder emails grouped into one per recipient.** `send-emails` used
@@ -46,6 +55,12 @@ that was touched in this round.
   per-email billing. Deployed via the Supabase dashboard code editor
   (no CLI token available in-session) — see "Fourth round" for the
   git-push wrinkle this round hit.
+- **(2026-11-02) New `weekly-report` Edge Function — written, NOT yet
+  deployed.** Monday-morning email to every admin summarizing all
+  overdue tasks grouped by department (reuses the same grouping
+  approach as `send-emails`, plus shows each task's assignee since the
+  audience is cross-department). See "Fifth round" below for scope
+  decisions and the deploy/cron steps still needed.
 - Self-service "Request access" on the login screen → `signup_requests`
   → pending-requests queue on the admin People page → Approve (real
   invite) / Dismiss. Notification email goes out via an Edge Function
@@ -202,23 +217,67 @@ entries in the same recipient-id set per task.
   that noreply address for this clone. If a future commit here fails to
   push with the same GH007 error, this is why, and the same fix applies.
 
+## Fifth round, 2026-11-02 (same day as Fourth round) — `weekly-report`
+
+Scoped and built the weekly report that had been sitting unscoped in
+the punch list since the first round. Scope decisions, agreed with the
+user before building rather than guessed:
+
+- **Recipients**: all admins (`users.role = 'admin'`) — not a separate
+  fixed list, so adding/removing admins automatically updates who gets
+  it, no extra config table needed.
+- **Content**: overdue tasks only (not "all open tasks" or anything
+  broader) grouped by department, reusing the same per-department
+  grouping approach just built into `send-emails`. Each task also shows
+  its assignee's name — `send-emails`'s per-recipient emails don't need
+  that (the recipient usually know who they are), but a cross-
+  department admin report does.
+- **Delivery**: new standalone Edge Function, `weekly-report`, same
+  Resend setup (`RESEND_API_KEY`, `FROM`) and same `CRON_SECRET` gate as
+  every other function — no new infra.
+- **Cadence**: the function checks `today.getDay() !== 1` and no-ops on
+  every day except Monday, rather than requiring a dedicated weekly cron
+  entry — the same pattern `reset-tasks` already uses internally for its
+  own weekly/monthly recurring tasks. This means the external cron
+  trigger for this function *can* just be the same daily schedule as
+  `send-emails`, pointed at a different URL — no new cron cadence to
+  configure, only a new entry.
+- If there are zero overdue tasks on a given Monday, it still emails
+  each admin a short "no overdue tasks" message rather than silently
+  sending nothing — so a missing report reads as "something's actually
+  broken," not "ambiguous, might just be a good week."
+
+**Status: code only, not deployed.** Files added:
+`supabase/functions/weekly-report/index.ts` (+ matching `deno.json` /
+`.npmrc` copied from `send-emails`), committed to `main`. Still needed
+before this actually sends anything:
+
+1. Deploy `weekly-report` via the Supabase dashboard code editor
+   (**https://supabase.com/dashboard/project/harbaqvqxwgkifkbejwy/functions**
+   → create/select `weekly-report` → paste `index.ts` → Deploy), same
+   manual process used for `send-emails` this session (no Supabase CLI
+   token available in this environment — see "Fourth round").
+2. Add a new external cron entry hitting
+   `https://harbaqvqxwgkifkbejwy.supabase.co/functions/v1/weekly-report`
+   with the `x-cron-secret: <CRON_SECRET>` header, same mechanism as
+   whatever already triggers `send-emails`/`reset-tasks` daily (that
+   scheduler lives outside this repo — wherever the existing cron jobs
+   for those two were configured is where this one goes too).
+
 ## Outstanding punch list
 
-Not in priority order. Nothing code-side is pending — everything below
-is either a manual/account action or unscoped feature work.
+Not in priority order.
 
+- **Deploy `weekly-report` and wire up its cron entry** — code is
+  written and committed (see "Fifth round" above) but not live yet.
+  Two manual steps, both detailed there: paste-and-deploy via the
+  Supabase dashboard, then add an external cron entry for it.
 - **Remaining end-to-end checks** — see the short list above (private
   task visibility across accounts, Remove-a-test-account, a final
-  visual click-through).
+  visual click-through). Once `weekly-report` is deployed, worth adding
+  "confirm this Monday's report actually arrived" to this list too.
 - **Decide whether the GitHub repo goes private.** Recommended (see
   below for the reasoning) — your call to actually flip it.
-- **Weekly report — what's done and what's outstanding.** Not yet
-  scoped. Open questions worth answering before building it: who
-  receives it (all admins? a fixed list independent of `role`?), does it
-  reuse the `send-emails` function's existing Resend setup or need its
-  own, is it project-wide or per-team, and does "outstanding" mean
-  overdue tasks, all open tasks, or something broader like the items in
-  this punch list itself.
 - **Get a credit card on file with Resend.** Presumably to avoid email
   sending (invites, signup notifications, overdue/due-soon reminders —
   everything in `lib`/`supabase/functions` that sends mail) getting cut
