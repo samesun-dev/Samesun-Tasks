@@ -4,11 +4,13 @@ Written 2026-09-03, substantially updated 2026-09-16 across three rounds
 of work in one long session (migrations + a delete-task fix; then
 per-task watchers/configurable reminders/a security review; then an
 id-mismatch bug on the site owner's own account plus an unassigned-task
-bug in `send-emails`), so a future session (or you, picking this back
-up) has full context without re-deriving it. Committed to the repo (not
-just this local clone) specifically so it survives a re-clone or a
-different machine — update or trim it as this work lands and goes
-stale, the same way Guest Portal's own CLAUDE.md gets kept current.
+bug in `send-emails`), then updated again 2026-11-02 for a `send-emails`
+rework (overdue throttle + grouped reminder emails — see "Fourth round"
+below), so a future session (or you, picking this back up) has full
+context without re-deriving it. Committed to the repo (not just this
+local clone) specifically so it survives a re-clone or a different
+machine — update or trim it as this work lands and goes stale, the same
+way Guest Portal's own CLAUDE.md gets kept current.
 
 Local clone: `BD/Samesun Tasks/` (sibling to the unrelated `BD/Guest
 Portal/` project — different repo, different Supabase project, don't
@@ -22,13 +24,28 @@ working repeatedly.
 
 ## Read this first — current status
 
-**Everything below is live and deployed as of end of day 2026-09-16,
-including the final `send-emails` redeploy** (confirmed done). Nothing
-code-side is outstanding — what's left in the punch list is all either
-manual/account actions (GitHub visibility, Resend billing) or
-not-yet-scoped feature work (weekly report), plus a few lower-priority
-end-to-end checks.
+**Everything below is live and deployed as of 2026-11-02**, including
+the `send-emails` overdue-throttle + grouped-email rework (see "Fourth
+round" below — confirmed deployed by diffing pasted dashboard code
+against the committed source, not just trusting the Deploy click).
+Nothing code-side is outstanding on that work. The older punch list
+further down is a separate, still-open list — manual/account actions
+(GitHub visibility, Resend billing) and not-yet-scoped feature work
+(weekly report), plus a few lower-priority end-to-end checks — none of
+that was touched in this round.
 
+- **(2026-11-02) Overdue reminders throttled to every 2 days, all
+  reminder emails grouped into one per recipient.** `send-emails` used
+  to resend an "Overdue" email daily for every incomplete overdue task,
+  and sent one email per task per recipient — an assignee or department
+  watcher with 5 overdue tasks got 5 separate emails. Now: overdue
+  emails only go out every other day per task (day 1, 3, 5... of being
+  overdue), and every recipient (assignee, task watcher, or team/
+  department watcher) gets at most **one** email per run, with Overdue
+  and Due-soon sections grouped by department. Driven by Resend's
+  per-email billing. Deployed via the Supabase dashboard code editor
+  (no CLI token available in-session) — see "Fourth round" for the
+  git-push wrinkle this round hit.
 - Self-service "Request access" on the login screen → `signup_requests`
   → pending-requests queue on the admin People page → Approve (real
   invite) / Dismiss. Notification email goes out via an Edge Function
@@ -133,6 +150,57 @@ notify their team's watchers" logic (added in the second round) dead
 code. Removed that filter; the loop already handles a missing assignee
 correctly. **Redeployed and confirmed** — this was the last outstanding
 deploy step from today's work, now done.
+
+## Fourth round, 2026-11-02 — commit `e0bfbdc`, `send-emails` rework
+
+Two asks in one session: throttle overdue reminders from daily to every
+2 days, then (same session) group all reminder emails per recipient
+instead of one email per task — both driven by Resend's per-email cost.
+
+**Overdue throttle**: `send-emails` computes `daysOverdue` (today minus
+the task's `end_date`) and only fires the overdue branch when
+`daysOverdue % 2 === 1` — so day 1 overdue sends, day 2 skips, day 3
+sends, etc. Deliberately left the "due soon" branch (`reminder_days_before`)
+untouched — it already only fires once, on the exact day, and throttling
+the *invocation* itself (vs. the logic inside it) would risk the cron
+skipping that exact day entirely depending on parity.
+
+**Grouped emails**: previously the function sent one email per
+(overdue-or-due-soon task) × (recipient) pair — an assignee or team
+watcher with several overdue tasks got that many separate emails.
+Reworked to bucket by recipient user id first (`recipientTasks`), across
+all their tasks for this run, then send **one** email per recipient with
+two sections (Overdue / Due soon), each grouped by department. Applies
+identically to assignees and to watchers ("managers") — both are just
+entries in the same recipient-id set per task.
+
+**Deploy mechanics worth knowing for next time**:
+- No Supabase CLI token available in this session/machine
+  (`supabase login` needs an interactive TTY or `SUPABASE_ACCESS_TOKEN`,
+  neither present) — deployed by hand via the dashboard code editor
+  (paste into `index.ts`, click Deploy) instead of `supabase functions
+  deploy`.
+- Verified the deploy actually took by having the user paste back two
+  *distinguishing* snippets from the live editor (the `renderSection`
+  function — doesn't exist in the old per-task version) rather than
+  trusting the Deploy click or checking only boilerplate lines that are
+  identical in both old and new versions.
+- **This git clone had no local identity configured** (`git commit`
+  failed with "Author identity unknown"). Set locally (not --global)
+  after confirming with the user, matching every prior commit's author:
+  `tech-ops-samesun <tech-ops@samesun.com>`.
+- **That push was then rejected by GitHub** (`GH007: push would publish
+  a private email address`) — the authenticated GitHub account/credential
+  doing the push has "block command-line pushes that expose my email"
+  enabled, and `tech-ops@samesun.com` isn't marked public on it (even
+  though that same address is already all over this repo's existing
+  public history from prior sessions — so the block didn't add any real
+  new exposure, it just caught this one push). Resolved by amending the
+  not-yet-pushed commit's author/committer to
+  `tech-ops-samesun@users.noreply.github.com` instead of touching the
+  GitHub account's privacy setting — local `user.email` is now set to
+  that noreply address for this clone. If a future commit here fails to
+  push with the same GH007 error, this is why, and the same fix applies.
 
 ## Outstanding punch list
 
